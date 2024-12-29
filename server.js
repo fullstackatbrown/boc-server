@@ -2,8 +2,8 @@ const mariadb = require("mariadb");
 const pool = mariadb.createPool({
   host: "localhost",
   user: "service",
-  password: "test123",
   database: "boc",
+  password: "test123",
   connectionLimit: 5,
 });
 
@@ -19,9 +19,27 @@ async function asyncFunction() {
     if (conn) conn.end();
   }
 }
-asyncFunction().then(() => {
-  pool.end();
-});
+asyncFunction()
+
+// Examples of queries:
+/*
+const res = await conn.query("INSERT INTO myTable value (?, ?)", [
+  1,
+  "mariadb",
+  ]);
+  console.log(res); // { affectedRows: 1, insertId: 1, warningStatus: 0 }
+  const trips = await conn.query("SELECT * FROM trips");
+  console.log(trips);
+*/
+
+async function getTrips() {
+  let conn = await pool.getConnection();
+  const trips = await conn.query("SELECT * FROM trips");
+  conn.end();
+  return trips;
+}
+
+// async function 
 
 const express = require("express");
 const cors = require("cors");
@@ -40,8 +58,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // simple route
-app.get("/", (req, res) => {
-  res.json({ message: "Welcome to the BOC server." });
+app.get("/", async (req, res) => {
+  console.log("RECEIVED CONNECT");
+  let trips = await getTrips();
+  console.log(trips);
+  //res.json({ message: "Welcome to the BOC server." });
+  res.json(trips);
 });
 
 // set port, listen for requests
