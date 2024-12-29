@@ -1,67 +1,55 @@
 const express = require("express");
-const passport = require("passport");
-const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const axios = require("axios");
+const { OAuth2Client } = require("google-auth-library");
 require("dotenv").config();
 
 const app = express();
-
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_REDIRECT_URI,
-    },
-    (token, tokenSecret, profile, done) => {
-      return done(null, profile);
-    },
-  ),
-);
-
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.deserializeUser((obj, done) => {
-  done(null, obj);
-});
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Route for Google OAuth
-app.get(
-  "/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] }),
-);
-
-// Google OAuth callback
-app.get(
-  "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/login" }),
-  (req, res) => {
-    res.redirect("/protected"); // Redirect to protected route after successful login
-  },
-);
-
-// Middleware to check if the user is authenticated
-const ensureAuthenticated = (req, res, next) => {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.redirect("/auth/google");
+var corsOptions = {
+  origin: "http://localhost:3000",
 };
 
-// Protected route
-app.get("/protected", ensureAuthenticated, (req, res) => {
-  res.send(`Hello, ${req.user.displayName}!`);
+app.use(express.json());
+app.use(cors(corsOptions));
+app.use(bodyParser.json());
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+app.post("/auth/google", async (req, res) => {
+  const { code } = req.body;
+
+  try {
+    const response = await axios.post(
+      "https://oauth2.googleapis.com/token",
+      {
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+        grant_type: "authorization_code",
+      },
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+
+    const tokens = response.data;
+    console.log("Tokens:", tokens);
+
+    // You can save tokens in the database and send relevant info back to the
+    // frontend
+    res.status(200).json({ message: "Login successful", tokens });
+  } catch (error) {
+    console.error(
+      "Error exchanging code:",
+      error.response?.data || error.message,
+    );
+    res.status(500).json({ error: "Failed to exchange authorization code" });
+  }
 });
 
-// Example of another protected route
-app.get("/secret-data", ensureAuthenticated, (req, res) => {
-  res.send("This is secret data, only accessible to authenticated users.");
-});
-
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
-});
+const PORT = 8080;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
