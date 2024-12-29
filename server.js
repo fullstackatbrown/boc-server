@@ -19,8 +19,8 @@ app.use(express.urlencoded({ extended: true }));
 const pool = mariadb.createPool({
   host: "localhost",
   user: "service",
-  password: "test123",
   database: "boc",
+  password: "test123",
   connectionLimit: 5,
 });
 // }}}
@@ -54,8 +54,12 @@ async function getTrips() {
 }
 
 // simple route
-app.get("/", (req, res) => {
-  res.json({ message: "Welcome to the BOC server." });
+app.get("/", async (req, res) => {
+  console.log("RECEIVED CONNECT");
+  let trips = await getTrips();
+  console.log(trips);
+  //res.json({ message: "Welcome to the BOC server." });
+  res.json(trips);
 });
 
 app.get("/trips", async (req, res) => {
