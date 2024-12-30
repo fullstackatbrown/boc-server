@@ -1,0 +1,12 @@
+PAGES:              FIRESTORE (STATIC) RESOURCES:       SQL (DYNAMIC) RESOURCES:
+home                n/a                                 n/a
+trips               n/a                                 trip data { name, planned date, leaders?, short description }
+gear-room           inventory data, gear room managers  n/a
+about-us            leadership data, stats?             n/a
+get-involved        link to list-serv signup, link      n/a
+                    to eboard application
+participant-home    n/a                                 trips they're on { name, planned date, personal status? },
+                                                        personal stats?, waiver on file (bool), 
+leader-home         n/a                                 everything ^^^, more stuff... (deal with this later) 
+trip-specifics?     n/a                                 trip data { name, planned date, leaders, max size, 
+                                                        num registered/space left?, blurb (longer desciption) }
