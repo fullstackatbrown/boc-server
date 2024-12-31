@@ -82,5 +82,10 @@ app.get("/protected", async (req, res) => {
   }
 });
 
+app.get("/logout", async (req, res) => {
+  res.clearCookie("access_token");
+  res.status(200).json({ message: "Logout successful" });
+});
+
 const PORT = 8080;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
