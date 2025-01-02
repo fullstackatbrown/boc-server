@@ -141,6 +141,7 @@ const app = express();
 const ACCEPTED_ORIGIN = "localhost:3000" //IP of static files server for production
 const corsOptions = {
   origin: `http://${ACCEPTED_ORIGIN}`,
+  credentials: true
 };
 app.use(cors(corsOptions)); //CORS options specifications
 app.use(json()); //Parse requests of content-type - application/json
@@ -151,6 +152,10 @@ app.use(cookieParser());
 app.use(logRequest);
 const protected_routes = ["/home"]; //Includes all subroutes
 app.use(protected_routes, authenticate);
+
+//Auth router
+const authRouter = require("./auth");
+app.use("/auth", authRouter);
 
 //Specific route handlers
 app.get("/trips", async (req, res) => {
