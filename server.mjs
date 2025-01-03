@@ -3,49 +3,30 @@ require("dotenv").config();
 const session = require("express-session");
 */
 
+import logger from "./logger.mjs";
+
 //Set up pool for database connection
-const { createPool } = require("mariadb");
+/*import { createPool } from "mariadb";
 const pool = createPool({
   host: "localhost",
   user: "service",
   database: "boc",
   password: "test123",
   connectionLimit: 5,
-});
-
-
-//Logger
-const path = require('path');
-const fs = require("fs").promises;
-const moment = require("moment");
-const LOG_FILE = path.join(__dirname, 'log.txt');
-const logger = {
-  log_file: LOG_FILE,
-  async log(msg) {
-    let date = new Date();
-    let curr_dt = moment(date).format("MM-DD HH:mm:ss (YYYY)");
-    let log_str = `${curr_dt} - ${msg}\n`;
-    fs.appendFile(this.log_file, log_str);
-  },
-  async start() {
-    try { await fs.rm(LOG_FILE); } //Refreshes log on startup
-    catch (err) { if (err.code === "ENOENT") { console.log("THIS HAPPENED"); } else { throw err } }
-    this.log("Logger started");
-  }
-}
+});*/
 
 //Handle global errors without shutting the whole program down
 process.on("unhandledRejection", (reason, promise) => {
   let trace = '';
   if (reason instanceof Error) { trace = reason.stack } 
-  err_msg = `FAILED PROMISE: ${promise} occurred because ${reason}\n${trace}`;
+  let err_msg = `FAILED PROMISE: ${promise} occurred because ${reason}\n${trace}`;
   console.error(err_msg);
   logger.log(err_msg);
 });
 process.on("uncaughtException", (reason, exception_origin) => {
   let trace = '';
   if (reason instanceof Error) { trace = reason.stack } 
-  err_msg = `EXCEPTION THROWN: ${exception_origin} occurred because ${reason}\n${trace}`;
+  let err_msg = `EXCEPTION THROWN: ${exception_origin} occurred because ${reason}\n${trace}`;
   console.error(err_msg);
   logger.log(err_msg);
 })
@@ -54,14 +35,17 @@ process.on("uncaughtException", (reason, exception_origin) => {
 //QUERY HELPERS
 //
 //const exec_query = (query_string) => {} 
+import models from './models.mjs';
+const { User, Trip, TripUserMap, TripClass } = models;
 
-async function getTrips() {
-  let conn = await pool.getConnection();
-  let trips = await conn.query("SELECT * FROM trips");
-  conn.release();
-  return trips;
+function getTrips() {
+  let pubTrips = Trip.findAll({
+    attributes: { exclude: ['id', 'planningChecklist'] },
+    where: { public: true }
+  });
+  return pubTrips;
 }
-
+/*
 async function getUserInfo(email) {
   let conn;
   try {
@@ -88,7 +72,7 @@ async function getUserInfo(email) {
     if (conn) conn.release();
   }
 }
-
+*/
 //
 //MIDDLEWARE
 //
@@ -127,10 +111,10 @@ async function authenticate(req, res, next) {
 
 
 //Express app setup
-const express = require("express");
-const { json, urlencoded } = require("express");
-const cors = require("cors");
-const cookieParser = require("cookie-parser");
+import express from "express";
+import { json, urlencoded } from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 const app = express();
 
 //
@@ -154,16 +138,17 @@ const protected_routes = ["/home"]; //Includes all subroutes
 app.use(protected_routes, authenticate);
 
 //Auth router
-const authRouter = require("./auth");
+import authRouter from "./auth.js";
 app.use("/auth", authRouter);
 
 //Specific route handlers
-app.get("/trips", async (req, res) => {
+app.get("/trips", async (_req, res) => {
   res.json(await getTrips());
 });
+/*
 app.get("/home", async (req, res) => {
   res.json(await getUserInfo("william_l_stone@brown.edu"));
-});
+});*/
 
 //Default route handler
 app.use(async (_req, res) => {
@@ -173,6 +158,5 @@ app.use(async (_req, res) => {
 // set port, listen for requests
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, async () => {
-  await logger.start();
   logger.log(`STARTUP: Running on port ${PORT}.`);
 });

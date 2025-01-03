@@ -27,7 +27,8 @@
     "express-session": "^1.18.1",
     "google-auth-library": "^9.15.0",
     "mariadb": "^3.4.0",
-    "moment": "^2.30.1"
+    "moment": "^2.30.1",
+    "sequelize": "^6.37.5"
   },
   "overrides": {
     "whatwg-url": "^14.0.0"
