@@ -1,19 +1,4 @@
-/*
-require("dotenv").config();
-const session = require("express-session");
-*/
-
 import logger from "./logger.mjs";
-
-//Set up pool for database connection
-/*import { createPool } from "mariadb";
-const pool = createPool({
-  host: "localhost",
-  user: "service",
-  database: "boc",
-  password: "test123",
-  connectionLimit: 5,
-});*/
 
 //Handle global errors without shutting the whole program down
 process.on("unhandledRejection", (reason, promise) => {
@@ -138,7 +123,7 @@ const protected_routes = ["/home"]; //Includes all subroutes
 app.use(protected_routes, authenticate);
 
 //Auth router
-import authRouter from "./auth.js";
+import authRouter from "./auth.mjs";
 app.use("/auth", authRouter);
 
 //Specific route handlers

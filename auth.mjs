@@ -1,24 +1,10 @@
-const express = require("express");
-const cookieParser = require("cookie-parser");
-const cors = require("cors");
-const axios = require("axios");
-const { OAuth2Client } = require("google-auth-library");
+import express from "express";
+import cookieParser from "cookie-parser";
+import axios from "axios";
+import { OAuth2Client } from "google-auth-library";
 
-/*
-const corsOptions = {
-  origin: "http://localhost:3000",
-  credentials: true,
-};
-*/
-require("dotenv").config();
-
-/*
-const app = express();
-
-app.use(express.json());
-app.use(cors(corsOptions));
-app.use(cookieParser());
-*/
+import dotenv from "dotenv";
+dotenv.config();
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const authRouter = express.Router();
@@ -81,38 +67,5 @@ authRouter.get("/check_access", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch data" });
   }
 });
-module.exports = authRouter;
-/*
-app.get("/protected", async (req, res) => {
-  const token = req.cookies.access_token;
 
-  if (!token) {
-    return res.status(401).json({ error: "Unauthorized: No token provided" });
-  }
-
-  try {
-    // Use the token to fetch data from an external API
-    const response = await axios.get(
-      "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
-
-    res.json(response.data);
-  } catch (error) {
-    console.error("Failed to fetch protected data:", error.message);
-    res.status(500).json({ error: "Failed to fetch data" });
-  }
-});
-
-app.get("/logout", async (req, res) => {
-  res.clearCookie("access_token");
-  res.status(200).json({ message: "Logout successful" });
-});
-
-const PORT = 8080;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-*/
+export default authRouter;
