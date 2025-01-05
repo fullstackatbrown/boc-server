@@ -19,9 +19,9 @@ process.on("uncaughtException", (reason, exception_origin) => {
 //
 //QUERY HELPERS
 //
-//const exec_query = (query_string) => {} 
+
 import models from './models.mjs';
-const { User, Trip, TripUserMap, TripClass } = models;
+const { User, Trip, TripSignUp, TripClass } = models;
 
 function getTrips() {
   let pubTrips = Trip.findAll({
@@ -30,34 +30,49 @@ function getTrips() {
   });
   return pubTrips;
 }
-/*
-async function getUserInfo(email) {
-  let conn;
-  try {
-    let conn = await pool.getConnection();
-    const user_data = conn.query(`SELECT * FROM users WHERE email = '${email}'`);
-    const user_trips = conn.query(
-      `SELECT trip_name FROM (
-        trips JOIN (
-          SELECT trip_id FROM user_trip_map
-          WHERE user_id = (
-            SELECT user_id FROM users
-            WHERE email = '${email}'
-          )
-        ) AS trip_ids ON trips.id = trip_ids.trip_id
-      )`
-    )
-    return {
-      user_data: await user_data,
-      user_trips: await user_trips
-    };
-  } catch (err) {
-    throw err;
-  } finally {
-    if (conn) conn.release();
-  }
+
+function getUserData(userId) {
+  let user = User.findByPk(userId, {
+    attributes: { exclude: ['id', 'lotteryWeight'] },
+    include: {
+      model: TripSignUp,
+      attributes: { exclude: ['userId'] },
+    }
+  });
+  return user;
 }
-*/
+
+//TODO: Consider if trip leaders might ever want to see their trip pages as public sees them
+async function getTripData(userId, tripId) {
+  //Grab trip data, if tripId is valid - error if not
+  let trip = await Trip.findByPk(tripId);
+  if (!trip) { throw new Error("Request trip does not exist") }
+  else { trip = trip.toJSON() }
+  //Grab signup data
+  let signup = await TripSignUp.findOne({
+    where: {
+      tripId: tripId, 
+      userId: userId,
+    },
+    attributes: { exclude: ['userId'] }
+  });
+  //Decide what data to send back to user based on signup status
+  let userData;
+  if (!signup) { //User is not on trip / userId is null (user not signed in)
+    if (!trip.public) { throw new Error("Trip is currently private") }
+    delete trip.planningChecklist;
+    userData = null;
+  } else if (signup.tripRole == 'Leader') { //User is a Leader
+    userData = signup.toJSON();
+  } else { //User is a Participant
+    if (!trip.public) { throw new Error("Trip is currently private") }
+    delete trip.planningChecklist;
+    userData = signup.toJSON();
+  }
+  trip.userData = userData;
+  return trip;
+}
+
 //
 //MIDDLEWARE
 //
@@ -130,10 +145,16 @@ app.use("/auth", authRouter);
 app.get("/trips", async (_req, res) => {
   res.json(await getTrips());
 });
-/*
-app.get("/home", async (req, res) => {
-  res.json(await getUserInfo("william_l_stone@brown.edu"));
-});*/
+app.get("/profile", async (req, res) => {
+  res.json(await getUserData(req.userId));
+});
+//Assuming tripId is of the form "tripName-id"
+app.get("/trip/:tripId", async (req, res) => {
+  let tripId = parseInt(req.params.tripId.split('-')[1]);
+  if (Number.isNaN(tripId)) { return res.json({ errMessage: "Url malformed, likely due to user tampering"}); }
+  try { res.json(await getTripData(req.userId, tripId)); }
+  catch (error) { res.json({ errMessage: "Trip page requested doesn't exist or is private"}); }
+});
 
 //Default route handler
 app.use(async (_req, res) => {

@@ -1,6 +1,6 @@
 import sequelize from './sequelize.mjs';
 import models from './models.mjs';
-const { User, Trip, TripUserMap, TripClass } = models;
+const { User, Trip, TripSignUp, TripClass } = models;
 
 //Set up trip classes
 const tripClasses = [
@@ -27,19 +27,54 @@ let user = User.upsert({
     email: 'william_l_stone@brown.edu',
     role: 'Admin',
 });
+let user2 = User.upsert({
+    firstName: 'Alan',
+    lastName: 'Wang',
+    email: 'alan_wang2@brown.edu',
+    role: 'Admin',
+});
+let user3 = User.upsert({
+    firstName: 'Test',
+    lastName: 'Dude',
+    email: 'test_dude@brown.edu',
+    role: 'Participant',
+});
 let trip = Trip.upsert({
     id: 1, //Will create endless copies if this is not set to 1
-    tripName: 'Willy\'s Wild Adventure',
+    tripName: 'Willy\'s Wild Waltz',
     plannedDate: new Date(),
     public: true,
     class: 'Z',
-    sentenceDesc: 'Come and do some awesome wacky stuff with mwah',
+    sentenceDesc: 'Come and do some cool stuff with mwah',
 });
-await user, trip;
-await TripUserMap.upsert({
+let trip2 = Trip.upsert({
+    id: 2,
+    tripName: 'Alan\'s Awesome Adventure',
+    plannedDate: new Date(),
+    public: false,
+    class: 'J',
+    blurb: 'Join me for an adventure into the wonderful world of quantitative finance! We\'ll talk about like Markov Chains and Fourier Transforms and stuff, solve quant interview questions, do trading game challenges, and figure out everyone\'s average score by starting with a secret random number, having everyone privately add their individual scores to it, subtracting the starting number, and averaging! Prepare for a day\'s (and night\'s, we will probably need to pull an all-nighter to do all this) worth of fun and a life\'s worth of money by signing up for this trip!' 
+}) 
+await user, user2, user3, trip, trip2;
+await TripSignUp.upsert({
     tripId: 1,
     userId: 1,
     tripRole: 'Leader',
+});
+await TripSignUp.upsert({
+    tripId: 2,
+    userId: 1,
+    tripRole: 'Participant',
+});
+await TripSignUp.upsert({
+    tripId: 2,
+    userId: 2,
+    tripRole: 'Leader',
+});
+await TripSignUp.upsert({
+    tripId: 1,
+    userId: 2,
+    tripRole: 'Participant',
 });
 
 //Close connection so as not to leave hanging connections
