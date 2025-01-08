@@ -1,6 +1,6 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from './sequelize.mjs';
-import logger from './logger.mjs';
+//import logger from './logger.mjs';
 
 //
 // USER MODEL
@@ -77,14 +77,17 @@ class Trip extends Model {
 }
 
 //Create default planning checklist
-const NUM_TASKS = 15; //By my rough count
+const tasks = ['Add to Google Calendar', 'Event Registration Request', 'Event Plan', 'Trip Description/Blurb', 'Lottery', 'Acceptance/Rejectance Emails', 'Pre-Trip Email', 'SAO Pre-Trip Email', 'Grab Medkit', 'Attendance', 'Follow Up Email', 'SAO Post-Trip Email', 'Impact Tracker'];
 const taskObj = {
-    responsible: null,
-    done: false,
+    responsible: '',
+    complete: false,
 };
 const defaultPlanningChecklist = Array.from(
-    { length: NUM_TASKS }, 
-    () => ({...taskObj})
+    tasks, 
+    (task) => ({
+        task: task,
+        ...taskObj
+    })
 );
 
 Trip.init(
@@ -102,13 +105,9 @@ Trip.init(
             type: DataTypes.DATE,
             allowNull: false,
         },
-        public: {
-            type: DataTypes.BOOLEAN,
-            allowNull: false,
-            defaultValue: false, //Created trips start out private
-        },
         maxSize: {
             type: DataTypes.INTEGER,
+            allowNull: false,
         },
         class: {
             type: DataTypes.STRING(1),
@@ -123,23 +122,22 @@ Trip.init(
         priceOverride: {
             type: DataTypes.FLOAT,
         },
-        paperworkLinks: {
-            type: DataTypes.JSON,
-        },
-        imageLinks: {
-            type: DataTypes.JSON,
-        },
         sentenceDesc: {
             type: DataTypes.STRING(100),
         },
         blurb: {
             type: DataTypes.TEXT,
         },
+        status: {
+            type: DataTypes.ENUM('Staging','Open','Pre-Trip','Post-Trip','Complete'),
+            allowNull: false,
+            defaultValue: 'Staging',
+        },
         planningChecklist: {
             type: DataTypes.JSON,
             allowNull: false,
             defaultValue: JSON.stringify(defaultPlanningChecklist),
-        }
+        },
     },
     { // OPTIONS
         sequelize,
@@ -255,7 +253,7 @@ Trip.hasMany(TripSignUp, { foreignKey: 'tripId' });
 TripSignUp.belongsTo(Trip, { foreignKey: 'tripId' });
 
 //Sync models with database
-await sequelize.sync();
-logger.log('Models successfully synced with database');
+//await sequelize.sync();
+//logger.log('Models successfully synced with database');
 
 export default { User, Trip, TripSignUp, TripClass };

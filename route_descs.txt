@@ -1,0 +1,90 @@
+GENERAL NOTES:
+Responses will never include userIds, but tripIds are exposed (client needs them to request trip specific data).
+Trip status progresses as follows: Staging -> Open -> Pre-Trip -> Post-Trip -> Complete. Once a trip has changed status, it cannot revert back.
+
+EXPRESS ROUTES:             METHOD: AUTH REQUIRED:  BODY:           RESPONSE BEHAVIOR:
+/ OR <undefined_route>      GET     None            N/A             Sends back server welcome message
+/trips                      GET     None            N/A             Sends back all trip data (except planningChecklist) for all trips
+                                                                    with a status of Open
+/leaders                    GET     Any Role        N/A             Sends back a list of all the names and emails of users who are
+                                                                    leaders/admin 
+/profile                    GET     Any Role        N/A             Sends back all user data (except lotteryWeight) for user
+                                                                    and all signup data for all associated trip signups
+/trip/<tripId>              GET     None*           N/A             If user not logged in or not signed up for trip: sends back all trip
+                                                                    data for tripId (except planningChecklist) if trip is Open. If user
+                                                                    is signed up with tripRole Participant, sends back same trip data plus 
+                                                                    all associated signup data. If user is signed up with tripRole Leader,
+                                                                    executes same behavior but includes planningChecklist.
+/auth/google                GET     None            Auth code       If sent with auth code, exchanges it for an auth token and sends token
+                                                                    to client, setting up a user account for the user
+/auth/check_access          GET     Any Role        N/A             Checks if user is properly authenticated
+/add-phone                  POST    Any Role        Phone Json      Stores phone number for user, overriding any previous entry and deleting
+                                                                    all non-numeric characters before inserting
+/create-trip                POST    Leader+         Creation form   Creates a private trip using the data contained within the creation form
+                                                                    and redirects to /trip/<tripId> with the new tripId
+/trip/<tripId>/task         POST    Trip Leader     Task json       Modifies planningChecklist for trip at <tripId> accordingly. If all tasks
+                                                                    are marked complete, sets trip status to Complete.
+/trip/<tripId>/alter        POST    Trip Leader     Alter json      Modifies the data associated with the trip at <tripId> accordingly. Only
+                                                                    plannedDate may be editted once trip is in Pre-Trip state (and nothing may
+                                                                    be editted after that). class/priceOverride may not be editted once Open 
+                                                                    status is reached.
+/trip/<tripId>/open         POST    Trip Leader     N/A             Sets trip status to Open, assuming its current status is Staging.
+                                                                    This action is not reversible (no action involving a change in status is)
+/trip/<tripId>/lottery      POST    Trip Leader     N/A             Selects up to the max_size of the trip at <tripId> participants who have 
+                                                                    signed up for the trip. Updates the status of all signed up participants
+                                                                    accordingly, updating lottery weights accordingly. Sets status to Pre-Trip 
+                                                                    for the trip. Sends back a list of emails of accepted participants and a 
+                                                                    list of emails of rejected participants.
+/trip/<tripId>/attendance   POST    Trip Leader     Attendance json Updates status of attendant participants and noshows, updating lottery weight
+                                                                    accordingly. Deletes sign up instances of excused absent. Sets status to Post-Trip
+/trip/<tripId>/signup       POST    Any Role        Sign up form    Creates a new TripSignUp instance for the user on the trip at <tripId>, if
+                                                                    the trip has Open status
+/alter-user                 POST    Admin           Role json       Updates role of target user accordingly   
+
+FORM/JSON DESCRIPTIONS:
+Phone Json:
+{
+    phoneNum: <phone_num> //No need to sanitize - all non-numeric characters are filtered out automatically
+}
+
+Creation Json:
+{
+    leaders: [<leader_email1>, ...], //Not necessarily including the email of the creating leader, whose role is implicit
+    tripName: <trip_name>,
+    plannedDate: <date_obj>, //Specific up to the day of the trip (but necessarily the hour)
+    maxSize: <max_num_participants>,
+    class: <price_class>, //Options include characters A-J (see marketplace) plus Z (for free trips)
+    priceOverride: <price_float>, //Only class or price_override should be defined (but one has to be)
+    sentenceDesc: <sentence_long_description>, //Can be null
+    blurb: <paragraph_long_description>, //Can be null
+}
+
+Task Json:
+{
+    taskName: <name_of_task>,
+    responsible: <email_of_leader>, //May NOT be null - empty string if no one is responsible yet
+    complete: <boolean>,
+}
+
+Alter Json:
+{
+    <any_trip_creation_field>, //Caveat: class/priceOverride cannot be editted after trip is open
+    //Multiple fields may be added, but they aren't all required (unlike with creation)
+}
+
+Attendance Json:
+{
+    <participant_email>: <attendance_status>, //attendance_status can be any of 'Participated', 'Excused Absence', or 'No Show'
+    ...
+}
+
+Signup Json:
+{
+    tripId: <trip_id>,
+}
+
+Role Json:
+{
+    role: <web_role>, //May be any of Participant, Leader, or Admin
+    email: <email_of_user_to_alter>,
+}
