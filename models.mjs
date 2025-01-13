@@ -82,13 +82,10 @@ const taskObj = {
     responsible: '',
     complete: false,
 };
-const defaultPlanningChecklist = Array.from(
-    tasks, 
-    (task) => ({
-        task: task,
-        ...taskObj
-    })
-);
+const defaultPlanningChecklist = tasks.reduce((pcList, task) => {
+    pcList[task] = { ...taskObj };
+    return pcList;
+}, {});
 
 Trip.init(
     { // FIELDS
@@ -191,7 +188,7 @@ TripSignUp.init(
     { // OPTIONS
         sequelize,
         //Preserves snake_case notation
-        tableName: 'trip_signup',
+        tableName: 'trip_signups',
         underscored: true,
     }
 );

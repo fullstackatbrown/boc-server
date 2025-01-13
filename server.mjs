@@ -1,212 +1,11 @@
 import logger from "./logger.mjs";
-
-//Handle global errors without shutting the whole program down
-/*
-process.on("unhandledRejection", (reason, promise) => {
-  let trace = '';
-  if (reason instanceof Error) { trace = reason.stack } 
-  let err_msg = `FAILED PROMISE: ${promise} occurred because ${reason}\n${trace}`;
-  console.error(err_msg);
-  logger.log(err_msg);
-});
-process.on("uncaughtException", (reason, exception_origin) => {
-  let trace = '';
-  if (reason instanceof Error) { trace = reason.stack } 
-  let err_msg = `EXCEPTION THROWN: ${exception_origin} occurred because ${reason}\n${trace}`;
-  console.error(err_msg);
-  logger.log(err_msg);
-})
-*/
-
-//
-//QUERY HELPERS
-//
-
-import sequelize from "./sequelize.mjs";
 import models from './models.mjs';
 const { User, Trip, TripSignUp, TripClass } = models;
 import errors from './errors.mjs';
-const { AuthError, NonexistenceError, InvalidDataError } = errors;
+const { AuthError, NonexistenceError, InvalidDataError, IllegalOperationError } = errors;
 import { Sequelize } from "sequelize";
-
-//Sync models with database
-await sequelize.sync();
-logger.log('Models successfully synced with database');
-
-// QUERY HELPER HELPERS lol
-
-function hasFields(obj, fields) {
-  return fields.every(field => obj.hasOwnAttribute(field));
-}
-
-function validFields(obj, fields) {
-  return obj.getAttributeNames().every(field => fields.includes(field));
-}
-
-async function isTripLeader(userId, tripId) { //Has benefit of certifying tripId's validity
-  let signup = await TripSignUp.findOne({
-    where: {
-      userId: userId,
-      tripId: tripId,
-    }
-  });
-  return (signup && (signup.tripRole == 'Leader'))
-}
-
-// RETRIEVAL HELPERS
-
-function getTrips() {
-  let pubTrips = Trip.findAll({
-    attributes: { exclude: ['id', 'planningChecklist'] },
-    where: { status: 'Open' }
-  });
-  return pubTrips;
-}
-
-function getUserData(userId) {
-  let user = User.findByPk(userId, {
-    attributes: { exclude: ['id', 'lotteryWeight'] },
-    include: {
-      model: TripSignUp,
-      attributes: { exclude: ['userId'] },
-    }
-  });
-  return user;
-}
-
-//TODO: Consider if trip leaders might ever want to see their trip pages as public sees them
-async function getTripData(userId, tripId) {
-  //Grab trip data, if tripId is valid - error if not
-  let trip = await Trip.findByPk(tripId);
-  if (!trip) { throw new NonexistenceError() }
-  else { trip = trip.toJSON() }
-  //Grab signup data
-  let signup = await TripSignUp.findOne({
-    where: {
-      tripId: tripId, 
-      userId: userId,
-    },
-    attributes: { exclude: ['userId'] }
-  });
-  //Decide what data to send back to user based on signup status
-  let userData;
-  if (!signup) { //User is not on trip / userId is null (user not signed in)
-    if (!(trip.status == 'Open')) { throw new AuthError("Trip is not currently public") }
-    delete trip.planningChecklist;
-    userData = null;
-  } else if (signup.tripRole == 'Leader') { //User is a Leader
-    userData = signup.toJSON();
-  } else { //User is a Participant
-    delete trip.planningChecklist;
-    userData = signup.toJSON();
-  }
-  trip.userData = userData;
-  return trip;
-}
-
-// SUBMISSION HELPERS
-
-//Will return rejected promise if first or last name is too long or email is not valid
-function createUser(firstName, lastName, email) {
-  return User.create({
-    firstName: firstName, 
-    lastName: lastName,
-    email: email,
-    role: 'Participant'
-  });
-}
-
-async function addPhone(userId, phoneNum) {
-  phoneNum = phoneNum.replace(/[^0-9]/g, ""); //Removes all non-numeric characters (whitespace, parens, dashes, etc.)
-  let user = await User.findByPk(userId);
-  user.phone = phoneNum;
-  return user.save();
-}
-
-const tripCreationFields = ['leaders','tripName','plannedDate','maxSize','class','priceOverride','sentenceDesc','blurb'];
-async function createTrip(userId, tripJson) {
-  //Sanitize/parse input
-  if (!hasFields(tripJson, tripCreationFields)) throw InvalidDataError('At least one required field is missing. Even fields with null values must be defined.');
-  let { leaders, ...tripObj } = tripJson;
-  if (!Array.isArray(leaders)) throw InvalidDataError('leaders field not an array');
-  //Gather (and certify existence of) all involved leaders' objects
-  let creatingLeader = User.findByPk(userId);
-  if (!creatingLeader || !(['Admin','Leader'].includes(creatingLeader.role))) throw AuthError()
-  let leaderObjs = leaders.map((email) => { 
-    return User.findOne({
-      where: { email: email }
-    });
-  });
-  leaderObjs.push(creatingLeader);
-  leaderObjs = await Promise.all(leaderObjs)
-  if (!leaderObjs.every(leaderObj => leaderObj)) throw InvalidDataError('At least one specified leader doesn\'t exist');
-  leaderObjs = [... new Set(leaderObjs)]; //Eliminate duplicates
-  //Begin transaction
-  await sequelize.transaction();
-  try {
-    //Create trip
-    let trip = await Trip.create(tripObj);
-    //Add each leader as such to the trip
-    let signupProms = leaderObjs.map(leaderObj => {
-      return TripSignUp.create({
-        userId: leaderObj.id,
-        tripId: trip.id,
-        tripRole: 'Leader',
-      })
-    });
-    await Promise.all(signupProms);
-    //Commit successful changes
-    await sequelize.commit(); 
-    return trip;
-  } catch (err) { //Rollback and rethrow error on failure
-    await sequelize.rollback(); 
-    throw err;
-  }
-}
-
-const taskUpdateFields = ['tripId','task','responsible','complete']
-async function taskUpdate(tripId, taskJson) {
-  //Sanitize input
-  if (!hasFields(taskJson, taskUpdateFields)) throw InvalidDataError("Missing one or more required field");
-  let {task, ...taskData} = taskJson;
-  let trip = await Trip.getByPk(tripId);
-  if (!trip.planningChecklist[task]) throw InvalidDataError("Specified task doesn't exist");
-  if (typeof taskData.responsible !== "string" || typeof taskData.complete !== "boolean") throw InvalidDataError("Field values of wrong type"); //Types must be checked manually here
-  //Update task
-  Object.assign(trip.planningChecklist[task], taskData);
-  return trip.save();
-}
-
-const tripUpdateFields = [...tripCreationFields];
-async function tripUpdate(tripId, alterJson) {
-  //Sanitize
-  if (!validFields(alterJson, tripUpdateFields)) throw InvalidDataError("Some provided fields invalid");
-  let trip = await Trip.getByPk(tripId);
-  if ((alterJson.class || alterJson.priceOverride) && (trip.status !== 'Staging')) throw new InvalidDataError("Can't change trip pricing once out of Staging");
-  if (['Pre-Trip','Post-Trip','Complete'].includes(trip.status) && !((alterJson.keys().length == 1) && (alterJson.plannedDate))) {
-    throw new InvalidDataError("Cannot change any trip properties besides plannedDate after reaching Pre-Trip status")
-  }
-  //Update trip
-  Object.assign(trip, alterJson);
-  return trip.save();
-}
-
-async function alterRole(userId, emailOfUserToAlter, newRole) {
-  if (!['Admin', 'Leader', 'Pariticipant'].includes(newRole)) { throw new Error("Role to elevate to doesn't exist") }
-  let alteringUser = await User.findByPk(userId);
-  if (alteringUser.role == 'Admin') {
-    let userToAlter = await User.findOne({
-      where: {
-        email: emailOfUserToAlter
-      }
-    });
-    userToAlter.role = newRole;
-    return userToElevate.save();
-  } else {
-    throw new AuthError();
-  }
-}
-
+import queries from "./queries.mjs";
+const { getTrips, getLeaders, getUserData, getTripData, createUser, addPhone, createTrip, taskUpdate, tripUpdate, openTrip, runLottery, doAttendance, tripSignup} = queries;
 
 //
 //MIDDLEWARE
@@ -244,34 +43,89 @@ async function authenticate(req, res, next) {
   next();
 }
 
-const TESTID = null;
+//Replacement authentication for testing; Change TESTID to take actions on differing accounts
+const TESTID = 1;
 function phonyAuth(req, _res, next) {
   req.userId = TESTID;
   next();
 }
 
+//Throws an error if user isn't logged in
 function loggedIn(req, _res, next) {
   if (!req.userId) throw new AuthError();
   next();
 }
 
-function parseTripId(req, _res, next) {
-  let tripId = parseInt(req.params.tripId.split('-')[1]);
+//Sanitizes tripId param and adds it as req.tripId
+async function parseTripId(req, _res, next) {
+  let tripId = parseInt(req.params.tripId);
   if (Number.isNaN(tripId)) throw new NonexistenceError("Trip signature improperly formed");
   req.tripId = tripId;
   next();
 }
 
+//Assuming req.tripId, adds the Trip object with that ID as req.Trip
+async function grabTrip(req, _res, next) {
+  const trip = await Trip.findByPk(req.tripId);
+  if (!trip) throw new NonexistenceError("Trip at specified tripId doesn't exist");
+  req.Trip = trip;
+  next();
+}
+
+//Assuming req.userId and req.tripId, adds the TripSignUp object with those as ids as req.TripSignUp
+async function grabSignup(req, _res, next) {
+  const signup = await TripSignUp.findOne({
+    where: {
+      userId: req.userId,
+      tripId: req.tripId,
+    }
+  });
+  if (!signup) throw new NonexistenceError("User not signed up for specified trip");
+  if (signup.tripRole !== 'Participant') throw new NonexistenceError("User not a participant on specified trip");
+  req.Signup = signup;
+  next();
+}
+
+//Assuming req.userId, adds the User object with that id as req.User
+async function grabUser(req, _res, next) {
+  const user = await User.findByPk(req.userId);
+  if (!user) throw new AuthError();
+  req.User = user;
+  next();
+}
+
+//Assuming req.userId and req.tripId, checks that associated user is a leader on the associated trip
 async function tripLeaderCheck(req, _res, next) {
   if (!(await isTripLeader(req.userId, req.tripId))) throw new AuthError("Must be a trip leader to post to this route");
   next();
 }
+async function isTripLeader(userId, tripId) { //Has benefit of certifying tripId's validity
+  const signup = await TripSignUp.findOne({
+    where: {
+      userId: userId,
+      tripId: tripId,
+    }
+  });
+  return (signup && (signup.tripRole == 'Leader'))
+}
 
-//Error handling utility
+//Assuming req.User, checks to make sure the user is a Leader or an Admin
+async function leaderPlusCheck(req, _res, next) {
+  if (!['Admin', 'Leader'].includes(req.User.role)) throw new AuthError("Must be a leader (or admin) to post to this route");
+  next();
+}
+
+//Error handling utilities
 const asyncHandler = (handler) => { //Ugly wrapper to aid with error/rejected promise propogation
   return async (req, res, next) => {
-    try { await handler(req, res) }
+    try { await handler(req, res, next) }
     catch (err) { next(err) }
+  }
+}
+const invalidRecast = (middleware) => {
+  return async (req, res, next) => {
+    try { await middleware(req, res, next) }
+    catch (err) { next(new InvalidDataError(err.message)) }
   }
 }
 
@@ -293,14 +147,14 @@ const corsOptions = {
   credentials: true
 };
 app.use(cors(corsOptions)); //CORS options specifications
-app.use(json()); //Parse requests of content-type application/json so req.body is a JS object parsed from the original JSON
+app.use(invalidRecast(json())); //Parse requests of content-type application/json so req.body is a JS object parsed from the original JSON
 app.use(urlencoded({ extended: true })); //*huh* : Parse requests of content-type - application/x-www-form-urlencoded
 app.use(cookieParser());
 
 //General middleware
 app.use(logRequest);
 app.use(phonyAuth);
-let protectedRoutes = ["/profile", "/add-phone", "/create-trip", "trip/:tripId/*"]; //Does not includ trip/:tripId itself
+let protectedRoutes = ["/profile", "/add-phone", "/create-trip", "/signup", "trip/:tripId/*"]; //Does not includ trip/:tripId itself
 app.use(protectedRoutes, loggedIn);
 
 //Auth router
@@ -308,34 +162,80 @@ import authRouter from "./auth.mjs";
 app.use("/auth", authRouter);
 
 //Trip leader route handlers
-const tripRouter = express.Router();
-tripRouter.use(parseTripId);
+const tripRouter = express.Router({ mergeParams: true });
+tripRouter.use(asyncHandler(parseTripId));
+tripRouter.use("/*", loggedIn); //All routes except "/" itself require user to be logged in
+tripRouter.use("/lead", asyncHandler(tripLeaderCheck));
+tripRouter.use("/lead", asyncHandler(grabTrip)); //Go ahead and grab trip instance here
+tripRouter.use("/participate", asyncHandler(grabSignup));
+
 tripRouter.get("/", asyncHandler(async (req, res) => {
   res.status(200).json(await getTripData(req.userId, req.tripId));
 }));
-tripRouter.use("/*", asyncHandler(tripLeaderCheck)); //All other routes require trip leadership
-tripRouter.post("/task", asyncHandler(async (req, res) => {
-  res.status(200).json(await taskUpdate(req.tripId, req.body));
+tripRouter.post("/signup", asyncHandler(async (req, res) => {
+  await tripSignup(req.userId, req.tripId);
+  res.sendStatus(200);
+}))
+tripRouter.post("/lead/task", asyncHandler(async (req, res) => {
+  await taskUpdate(req.Trip, req.body);
+  res.sendStatus(200);
 }));
-tripRouter.post("/alter", asyncHandler(async (req, res) => {
-  res.status.json(await tripUpdate(req.tripId, req.body))
+tripRouter.post("/lead/alter", asyncHandler(async (req, res) => {
+  await tripUpdate(req.Trip, req.body);
+  res.sendStatus(200);
 }));
-app.use("/trip/:tripId",tripRouter)
+tripRouter.post("/lead/open", asyncHandler(async (req,res) => {
+  await openTrip(req.Trip);
+  res.sendStatus(200);
+}));
+tripRouter.post("/lead/lottery", asyncHandler(async (req, res) => {
+  res.status(200).json(await runLottery(req.Trip));
+}));
+tripRouter.post("/lead/attendance", asyncHandler(async (req, res) => {
+  await doAttendance(req.Trip, req.body);
+  res.sendStatus(200);
+}));
+/*
+tripRouter.post("/participate/confirm", asyncHandler(async (req, res) => {
+  await tripSignup(req.User, )
+}))*/
 
-//Specfic route handlers
+app.use("/trip/:tripId",tripRouter);
+
+//User action route handlers
+const userRouter = express.Router();
+userRouter.use(loggedIn);
+userRouter.use(asyncHandler(grabUser));
+
+userRouter.get("/profile", asyncHandler(async (req, res) => {
+  res.status(200).json(await getUserData(req.User));
+}));
+userRouter.post("/add-phone", asyncHandler(async (req, res) => {
+  if (!req.body.hasOwnProperty("phoneNum")) throw new InvalidDataError("Request body lacking phoneNum field");
+  await addPhone(req.User, req.body.phoneNum);
+  res.sendStatus(200);
+}));
+
+app.use("/user", userRouter);
+
+//Leader action route handlers
+const leaderRouter = express.Router();
+leaderRouter.use(loggedIn);
+leaderRouter.use(asyncHandler(grabUser));
+leaderRouter.use(asyncHandler(leaderPlusCheck));
+
+leaderRouter.post("/create-trip", asyncHandler(async (req, res) => {
+  res.status(200).json(await createTrip(req.User, req.body));
+}));
+
+app.use("/leader", leaderRouter);
+
+//General route handlers
 app.get("/trips", asyncHandler(async (_req, res) => {
   res.status(200).json(await getTrips());
 }));
-app.get("/profile", asyncHandler(async (req, res) => {
-  res.status(200).json(await getUserData(req.userId));
-}));
-app.post("/add-phone", asyncHandler(async (req, res) => {
-  if (!req.body.phoneNum) throw InvalidDataError("Request body lacking phoneNum field");
-  await addPhone(req.userId, req.body.phoneNum);
-  res.sendStatus(200);
-}));
-app.post("/create-trip", asyncHandler(async (req, res) => {
-  res.status(200).json(await createTrip(req.userId, req.body));
+app.get("/leaders", asyncHandler(async (_req, res) => {
+  res.status(200).json(await getLeaders());
 }));
 
 //Default route handler
@@ -346,18 +246,42 @@ app.use(asyncHandler(async (_req, res) => {
 //Error handlers
 app.use(async (err, _req, res, _next) => {
   if (err instanceof Sequelize.BaseError) {
+    //logger.log(err.message);
     res.status(422).json({ errMessage: "SQL operation failure. Possible sources: broken unique constraint, data too long, or data of wrong type" })
   } else if (err instanceof AuthError) {
-    res.status(401).json({ errMesssage: `${err}` })
+    res.status(401).json({ errMesssage: `${err}` });
   } else if (err instanceof NonexistenceError) {
-    res.status(404).json({ errMessage: `${err}` })
+    res.status(404).json({ errMessage: `${err}` });
   } else if (err instanceof InvalidDataError) {
-    res.status(422).json({ errMessage: `${err}`});
+    res.status(422).json({ errMessage: `${err}` });
+  } else if (err instanceof IllegalOperationError) {
+    res.status(403).json({ errMessage: `${err}` });
   } else {
-    logger.log(`INTERNAL ERROR: ${err}`);
-    res.status(500).json({ errMessage: `Internal Server Error: ${err}`})
+    let msg;
+    if (err instanceof Error) { msg = `${err} - stack: ${err.stack}`}
+    else { msg = `${err}`}
+    logger.log(`INTERNAL ERROR: ${msg}`);
+    res.status(500).json({ errMessage: `Internal Server Error: ${err}`});
   }
 });
+
+//Handle global errors without shutting the whole program down
+/*
+process.on("unhandledRejection", (reason, promise) => {
+  let trace = '';
+  if (reason instanceof Error) { trace = reason.stack } 
+  let err_msg = `FAILED PROMISE: ${promise} occurred because ${reason}\n${trace}`;
+  console.error(err_msg);
+  logger.log(err_msg);
+});
+process.on("uncaughtException", (reason, exception_origin) => {
+  let trace = '';
+  if (reason instanceof Error) { trace = reason.stack } 
+  let err_msg = `EXCEPTION THROWN: ${exception_origin} occurred because ${reason}\n${trace}`;
+  console.error(err_msg);
+  logger.log(err_msg);
+});
+*/
 
 
 // set port, listen for requests

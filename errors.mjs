@@ -19,4 +19,11 @@ class InvalidDataError extends Error {
     }
 }
 
-export default { AuthError, NonexistenceError, InvalidDataError };
+class IllegalOperationError extends Error {
+    constructor(message = 'Attempted operation not permitted') {
+      super(message);
+      this.name = 'IllegalOperationError';
+    }
+}
+
+export default { AuthError, NonexistenceError, InvalidDataError, IllegalOperationError };
