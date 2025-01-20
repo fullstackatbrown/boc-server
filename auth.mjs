@@ -8,7 +8,7 @@ dotenv.config();
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const authRouter = express.Router();
-authRouter.post("/google", async (req, res) => {
+authRouter.post("/auth", async (req, res) => {
   const { code } = req.body;
 
   try {
@@ -46,7 +46,7 @@ authRouter.post("/google", async (req, res) => {
     res.status(500).json({ error: "Failed to exchange authorization code" });
   }
 });
-authRouter.get("/check_access", async (req, res) => {
+authRouter.get("/me", async (req, res) => {
   const token = req.cookies.access_token;
   if (!token) {
     return res.status(401).json({ error: "Unauthorized: No token provided" });
@@ -62,6 +62,15 @@ authRouter.get("/check_access", async (req, res) => {
       },
     );
     res.json(response.data);
+  } catch (error) {
+    console.error("Failed to fetch protected data:", error.message);
+    res.status(500).json({ error: "Failed to fetch data" });
+  }
+});
+authRouter.get("/logout", async (req, res) => {
+  try {
+    res.clearCookie('access_token', { path: '/' });
+    res.status(200).json({ message: "Logged out successfully" })
   } catch (error) {
     console.error("Failed to fetch protected data:", error.message);
     res.status(500).json({ error: "Failed to fetch data" });

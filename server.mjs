@@ -124,7 +124,9 @@ app.use(protected_routes, authenticate);
 
 //Auth router
 import authRouter from "./auth.mjs";
-app.use("/auth", authRouter);
+app.get("/me", authRouter);
+app.get("/logout", authRouter);
+app.post("/auth", authRouter);
 
 //Specific route handlers
 app.get("/trips", async (_req, res) => {
