@@ -29,15 +29,7 @@ authRouter.post("/auth", async (req, res) => {
     );
 
     const token = response.data.access_token;
-
-    res.cookie("access_token", token, {
-      httpOnly: true, // Prevents JavaScript access
-      secure: process.env.NODE_ENV === "production", // HTTPS only in production
-      sameSite: "strict", // Mitigates CSRF attacks
-      maxAge: 3600 * 1000, // 1 hour
-    });
-
-    res.status(200).json({ message: "Login successful" });
+    res.status(200).json({ access_token: token });
   } catch (error) {
     console.error(
       "Error exchanging code:",
@@ -67,14 +59,14 @@ authRouter.get("/me", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch data" });
   }
 });
-authRouter.get("/logout", async (req, res) => {
-  try {
-    res.clearCookie('access_token', { path: '/' });
-    res.status(200).json({ message: "Logged out successfully" })
-  } catch (error) {
-    console.error("Failed to fetch protected data:", error.message);
-    res.status(500).json({ error: "Failed to fetch data" });
-  }
-});
+// authRouter.get("/logout", async (req, res) => {
+//   try {
+//     res.clearCookie('access_token', { path: '/' });
+//     res.status(200).json({ message: "Logged out successfully" })
+//   } catch (error) {
+//     console.error("Failed to fetch protected data:", error.message);
+//     res.status(500).json({ error: "Failed to fetch data" });
+//   }
+// });
 
 export default authRouter;
