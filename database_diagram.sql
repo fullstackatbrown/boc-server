@@ -36,7 +36,7 @@ Table trip_classes {
   price float [not null]
 }
 
-Table trip_user_map {
+Table trip_signup {
   trip_id integer [not null] -- Combination of trip_id and
   user_id integer [not null] -- user_id will function as primary key
   trip_role enum('Leader','Participant') [not null]
@@ -47,8 +47,8 @@ Table trip_user_map {
 }
 
 -- Multiple users/trips get mapped to eachother
-Ref: trip_user_map.trip_id > trips.id
-Ref: trip_user_map.user_id > users.id
+Ref: trip_signup.trip_id > trips.id
+Ref: trip_signup.user_id > users.id
 
 Ref: trip_classes.trip_class < trips.class
 
