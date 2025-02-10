@@ -51,6 +51,7 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 signups in which they had the role of trip leader are deleted.
 TODO: /trip/<tripId>/lead/cancel
 TODO: /trip/<tripId>/lead/quit
+TODO: /trip/<tripId>/cancel
 
 FORM/JSON DESCRIPTIONS:
 Phone Json:
