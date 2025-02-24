@@ -1,7 +1,7 @@
 import { Sequelize } from 'sequelize';
 import logger from './logger.mjs';
 
-//Set up sequelize pool
+//Set up sequelize pool - sets up connection to database
 const sequelize = new Sequelize('boc', 'service', 'test123', {
     host: 'localhost',
     dialect: 'mariadb',
