@@ -28,6 +28,7 @@ Table trips {
   sentence_desc varchar(100)
   blurb text
   planning_checklist json -- Planning tasks, completion status, and whos responsible
+  SAO_approved boolean [default: false]
 }
 
 Table trip_classes {
