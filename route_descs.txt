@@ -17,9 +17,8 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 executes same behavior but includes planningChecklist, a list of other 
                                                                                 leader's names and emails, and a list of selected participants' signups
                                                                                 (if trip status is Pre-Trip or later).
-/auth/google                            GET     None            Auth code       If sent with auth code, exchanges it for an auth token and sends token
+/auth/                                  GET     None            Auth code       If sent with auth code, exchanges it for an auth token and sends token
                                                                                 to client, setting up a user account for the user
-/auth/check_access                      GET     Any Role        N/A             Checks if user is properly authenticated
 /user/add-phone                         POST    Any Role        Phone Json      Stores phone number for user, overriding any previous entry and deleting
                                                                                 all non-numeric characters before inserting
 /leader/create-trip                     POST    Leader+         Creation form   Creates a private trip using the data contained within the creation form

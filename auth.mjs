@@ -8,7 +8,7 @@ dotenv.config();
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const authRouter = express.Router();
-authRouter.post("/auth", async (req, res) => {
+authRouter.post("/", async (req, res) => {
   const { code } = req.body;
 
   try {
@@ -38,27 +38,27 @@ authRouter.post("/auth", async (req, res) => {
     res.status(500).json({ error: "Failed to exchange authorization code" });
   }
 });
-authRouter.get("/me", async (req, res) => {
-  const token = req.cookies.access_token;
-  if (!token) {
-    return res.status(401).json({ error: "Unauthorized: No token provided" });
-  }
-  try {
-    // Use the token to fetch data from an external API
-    const response = await axios.get(
-      "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
-    res.json(response.data);
-  } catch (error) {
-    console.error("Failed to fetch protected data:", error.message);
-    res.status(500).json({ error: "Failed to fetch data" });
-  }
-});
+// authRouter.get("/me", async (req, res) => {
+//   const token = req.cookies.access_token;
+//   if (!token) {
+//     return res.status(401).json({ error: "Unauthorized: No token provided" });
+//   }
+//   try {
+//     // Use the token to fetch data from an external API
+//     const response = await axios.get(
+//       "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
+//       {
+//         headers: {
+//           Authorization: `Bearer ${token}`,
+//         },
+//       },
+//     );
+//     res.json(response.data);
+//   } catch (error) {
+//     console.error("Failed to fetch protected data:", error.message);
+//     res.status(500).json({ error: "Failed to fetch data" });
+//   }
+// });
 // authRouter.get("/logout", async (req, res) => {
 //   try {
 //     res.clearCookie('access_token', { path: '/' });

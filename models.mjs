@@ -250,7 +250,7 @@ Trip.hasMany(TripSignUp, { foreignKey: 'tripId' });
 TripSignUp.belongsTo(Trip, { foreignKey: 'tripId' });
 
 //Sync models with database
-//await sequelize.sync();
+// await sequelize.sync({force: true});
 //logger.log('Models successfully synced with database');
 
 export default { User, Trip, TripSignUp, TripClass };
