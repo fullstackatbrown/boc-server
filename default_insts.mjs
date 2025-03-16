@@ -60,7 +60,8 @@ const { User, Trip, TripSignUp, TripClass } = models;
         class: 'J',
         blurb: 'Join me for an adventure into the wonderful world of quantitative finance! We\'ll talk about like Markov Chains and Fourier Transforms and stuff, solve quant interview questions, do trading game challenges, and figure out everyone\'s average score by starting with a secret random number, having everyone privately add their individual scores to it, subtracting the starting number, and averaging! Prepare for a day\'s (and night\'s, we will probably need to pull an all-nighter to do all this) worth of fun and a life\'s worth of money by signing up for this trip!' 
     }) 
-    await user, user2, user3, trip, trip2;
+    await Promise.all([user, user2, user3, trip, trip2]);
+
     await TripSignUp.upsert({
         tripId: 1,
         userId: 1,
