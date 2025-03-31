@@ -208,7 +208,7 @@ app.use(logRequest);
 import authRouter from "./auth.mjs";
 app.use("/auth", authRouter);
 
-app.use(phonyAuth);
+app.use(phonyAuth); //change to authenticate for deployment
 let protectedRoutes = [
   "/profile",
   "/add-phone",
