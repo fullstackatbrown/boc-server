@@ -68,7 +68,16 @@ async function authenticate(req, res, next) {
       },
     }));
 
-    req.userId = user ? user.id : null;
+    if (user == null) {
+      console.log("CREATING ACCOUNT")
+      user = createUser(
+        response.data.given_name,
+        response.data.family_name,
+        response.data.email
+      )
+    }
+
+    req.userId = user.id;
 
     //If no error occurs, it's safe to continue
     next();
@@ -208,7 +217,7 @@ app.use(logRequest);
 import authRouter from "./auth.mjs";
 app.use("/auth", authRouter);
 
-app.use(phonyAuth);
+app.use(authenticate);
 let protectedRoutes = [
   "/profile",
   "/add-phone",
