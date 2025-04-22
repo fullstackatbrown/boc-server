@@ -17,6 +17,10 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 executes same behavior but includes planningChecklist, a list of other 
                                                                                 leader's names and emails, and a list of selected participants' signups
                                                                                 (if trip status is Pre-Trip or later).
+/trip/<tripId>/is-signed-up             GET     None*           N/A             Sends back a boolean expressing whether or not a user has a signup instance
+                                                                                for the trip with the specified id. Will return true for leaders leading the
+                                                                                trip and even for participants who signed up, but weren't selected (as long as
+                                                                                they still have a signup instance)         
 /auth/                                  GET     None            Auth code       If sent with auth code, exchanges it for an auth token and sends token
                                                                                 to client, setting up a user account for the user
 /user/add-phone                         POST    Any Role        Phone Json      Stores phone number for user, overriding any previous entry and deleting

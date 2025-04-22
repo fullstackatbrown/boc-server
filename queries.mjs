@@ -300,6 +300,16 @@ async function tripSignup(userId, tripId) {
   return signup;
 }
 
+async function isSignedUp(userId, tripId) {
+  const signup = await TripSignUp.findOne({
+    where: {
+      userId: userId,
+      tripId: tripId,
+    },
+  });
+  return (!signup ? false : true)
+}
+
 //TODO: add and test route
 async function confirmSignup(userId, tripId) {
 
@@ -322,4 +332,4 @@ async function alterRole(userId, emailOfUserToAlter, newRole) {
   }
 }
 
-export default { getTrips, getLeaders, getUserData, getTripData, createUser, addPhone, createTrip, taskUpdate, tripUpdate, openTrip, runLottery, doAttendance, tripSignup };
+export default { getTrips, getLeaders, getUserData, getTripData, createUser, addPhone, createTrip, taskUpdate, tripUpdate, openTrip, runLottery, doAttendance, tripSignup, isSignedUp };

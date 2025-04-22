@@ -24,6 +24,7 @@ const {
   runLottery,
   doAttendance,
   tripSignup,
+  isSignedUp,
 } = queries;
 
 import axios from "axios";
@@ -240,6 +241,12 @@ tripRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     res.status(200).json(await getTripData(req.userId, req.tripId));
+  }),
+);
+tripRouter.get(
+  "/is-signed-up",
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await isSignedUp(req.userId, req.tripId))
   }),
 );
 tripRouter.post(
