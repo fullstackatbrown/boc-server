@@ -72,7 +72,7 @@ async function authenticate(req, res, next) {
       console.log("CREATING ACCOUNT")
       user = createUser(
         response.data.given_name,
-        response.data.family_name,
+        response.data.family_name ? response.data.family_name : "",
         response.data.email
       )
     }
