@@ -63,7 +63,7 @@ async function authenticate(req, res, next) {
       },
     );
 
-    const user = (await User.findOne({
+    let user = (await User.findOne({
       where: {
         email: response.data.email,
       },
@@ -79,6 +79,7 @@ async function authenticate(req, res, next) {
     }
 
     req.userId = user.id;
+    console.log(req.userId);
 
     //If no error occurs, it's safe to continue
     next();
