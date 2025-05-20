@@ -41,17 +41,18 @@ async function logRequest(req, _res, next) {
   next();
 }
 
-
 //Checks authentication of incoming requests
 async function authenticate(req, res, next) {
   const token = req.headers.token;
-  if (!token) {
-    //No auth token yet - front end should treat this as a sign, so start google auth process
-    logger.log(
-      `Authentication failed for ${req.connection.remoteAddress}:${req.connection.remotePort}`,
-    );
-    return res.status(401).json({ error: "Unauthorized: No token provided" });
-  }
+
+  //if (!token) {
+  //  //No auth token yet - front end should treat this as a sign, so start google auth process
+  //  logger.log(
+  //    `Authentication failed for ${req.connection.remoteAddress}:${req.connection.remotePort}`,
+  //  );
+  //  return res.status(401).json({ error: "Unauthorized: No token provided" });
+  //}
+
   try {
     // Use the token to fetch data from an external API
     const response = await axios.get(
@@ -63,29 +64,27 @@ async function authenticate(req, res, next) {
       },
     );
 
-    let user = (await User.findOne({
+    let user = await User.findOne({
       where: {
         email: response.data.email,
       },
-    }));
+    });
 
     if (user == null) {
-      console.log("CREATING ACCOUNT")
+      console.log("CREATING ACCOUNT");
       user = createUser(
         response.data.given_name,
         response.data.family_name ? response.data.family_name : "",
-        response.data.email
-      )
+        response.data.email,
+      );
     }
 
+    //If no error occurs, we attach the user's id and continue
     req.userId = user.id;
-    console.log(req.userId);
-
-    //If no error occurs, it's safe to continue
     next();
   } catch (error) {
-    console.error("Failed to fetch protected data:", error.message);
-    res.status(500).json({ error: "Failed to fetch data" });
+    // Continue as if the user is not authenticated
+    next();
   }
 }
 
@@ -214,7 +213,6 @@ app.use(cookieParser());
 //General middleware
 app.use(logRequest);
 
-
 //Auth router
 import authRouter from "./auth.mjs";
 app.use("/auth", authRouter);
@@ -229,11 +227,10 @@ let protectedRoutes = [
 ]; //Does not includ trip/:tripId itself
 app.use(protectedRoutes, loggedIn);
 
-
 //Trip leader route handlers
 const tripRouter = express.Router({ mergeParams: true });
 tripRouter.use(asyncHandler(parseTripId));
-tripRouter.use("/*", loggedIn); //All routes except "/" itself require user to be logged in
+tripRouter.use("/:subpath", loggedIn); //All routes except "/" itself require user to be logged in
 tripRouter.use("/lead", asyncHandler(tripLeaderCheck));
 tripRouter.use("/lead", asyncHandler(grabTrip)); //Go ahead and grab trip instance here
 tripRouter.use("/participate", asyncHandler(grabSignup));
@@ -241,13 +238,13 @@ tripRouter.use("/participate", asyncHandler(grabSignup));
 tripRouter.get(
   "/",
   asyncHandler(async (req, res) => {
-    res.status(200).json(await getTripData(req.userId, req.tripId));
+    res.status(200).json(await getTripData(req.tripId, req.userId));
   }),
 );
 tripRouter.get(
   "/is-signed-up",
   asyncHandler(async (req, res) => {
-    res.status(200).json(await isSignedUp(req.userId, req.tripId))
+    res.status(200).json(await isSignedUp(req.userId, req.tripId));
   }),
 );
 tripRouter.post(
