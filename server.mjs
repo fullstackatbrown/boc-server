@@ -71,7 +71,6 @@ async function authenticate(req, res, next) {
     });
 
     if (user == null) {
-      console.log("CREATING ACCOUNT");
       user = createUser(
         response.data.given_name,
         response.data.family_name ? response.data.family_name : "",
@@ -97,7 +96,6 @@ function phonyAuth(req, _res, next) {
 
 //Throws an error if user isn't logged in
 function loggedIn(req, _res, next) {
-  console.log(req.userId)
   if (!req.userId) throw new AuthError();
   next();
 }
