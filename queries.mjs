@@ -91,43 +91,43 @@ async function getTripData(tripId, userId) {
       attributes: { exclude: ["userId"] },
     });
 
-    if (!signup) {
+    if (signup === null) {
       // Not signed up
       if (!(trip.status == "Open")) {
         throw new AuthError("Trip is not currently public");
       }
       delete trip.dataValues.planningChecklist;
       userData = -1;
-    }
-
-    userData = signup.toJSON();
-    if (signup.tripRole == "Leader") {
-      //User is a Leader
-      //Include other leaders' names and emails
-      const otherLeaderSignups = await trip.getTripSignUps({
-        where: {
-          tripRole: "Leader",
-          userId: { [Op.not]: userId },
-        },
-        include: {
-          model: User,
-          attributes: ["firstName", "lastName", "email"],
-        },
-      });
-      const otherLeaders = otherLeaderSignups.map((signup) => signup.User);
-      trip.setDataValue("otherLeaders", otherLeaders);
-      if (["Pre-Trip", "Post-Trip", "Complete"].includes(trip.status)) {
-        //Include all signed up participants' trip data
-        const participants = await trip.getTripSignUps({
+    } else {
+      userData = signup.toJSON();
+      if (signup.tripRole == "Leader") {
+        //User is a Leader
+        //Include other leaders' names and emails
+        const otherLeaderSignups = await trip.getTripSignUps({
           where: {
-            status: { [Op.regexp]: "^(Selected|Participated|No Show)$" },
+            tripRole: "Leader",
+            userId: { [Op.not]: userId },
+          },
+          include: {
+            model: User,
+            attributes: ["firstName", "lastName", "email"],
           },
         });
-        trip.setDataValue("participants", participants);
+        const otherLeaders = otherLeaderSignups.map((signup) => signup.User);
+        trip.setDataValue("otherLeaders", otherLeaders);
+        if (["Pre-Trip", "Post-Trip", "Complete"].includes(trip.status)) {
+          //Include all signed up participants' trip data
+          const participants = await trip.getTripSignUps({
+            where: {
+              status: { [Op.regexp]: "^(Selected|Participated|No Show)$" },
+            },
+          });
+          trip.setDataValue("participants", participants);
+        }
+      } else {
+        //User is a Participant
+        delete trip.dataValues.planningChecklist;
       }
-    } else {
-      //User is a Participant
-      delete trip.dataValues.planningChecklist;
     }
   }
 
