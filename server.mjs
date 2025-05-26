@@ -45,14 +45,6 @@ async function logRequest(req, _res, next) {
 async function authenticate(req, res, next) {
   const token = req.headers.token;
 
-  //if (!token) {
-  //  //No auth token yet - front end should treat this as a sign, so start google auth process
-  //  logger.log(
-  //    `Authentication failed for ${req.connection.remoteAddress}:${req.connection.remotePort}`,
-  //  );
-  //  return res.status(401).json({ error: "Unauthorized: No token provided" });
-  //}
-
   try {
     // Use the token to fetch data from an external API
     const response = await axios.get(
