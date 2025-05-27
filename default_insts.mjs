@@ -63,7 +63,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
       signing up for this trip!` 
     }) 
     let trip3 = Trip.upsert({
-        id: 3, //Will create endless copies if this is not set to 1
+        id: 3,
         tripName: 'Willy\'s 2nd Wild Waltz',
         plannedDate: new Date("2028-10-10T14:48:00"),
         status: 'Open',
@@ -71,7 +71,28 @@ const { User, Trip, TripSignUp, TripClass } = models;
         class: 'Z',
         sentenceDesc: 'Come and do some cool stuff with mwah',
     });
-    await Promise.all([user, user2, trip, trip2, trip3]);
+    let trip4 = Trip.upsert({
+        id: 4,
+        tripName: 'Trip with Long Description',
+        plannedDate: new Date("2025-07-14T14:48:00"),
+        status: 'Open',
+        maxSize: 10,
+        class: 'Z',
+        sentenceDesc: `Gonna be the best trip of all time! We're gonna do all kinds of cool things,
+         and it's gonna be really really fun! You should really join the trip cuz it's gonna be really awesome
+         and you don't wanna miss out! Now c'mon - click on this and hit that sign up button; you know you want to! 
+         It'll be the best choice you ever made!`,
+    });
+    let trip5 = Trip.upsert({
+        id: 5,
+        tripName: 'Some Other Trip',
+        plannedDate: new Date("2025-07-14T14:48:00"),
+        status: 'Open',
+        maxSize: 10,
+        class: 'Z',
+        sentenceDesc: `Yeah, this is just some other trip *shrug*.`,
+    })
+    await Promise.all([user, user2, trip, trip2, trip3, trip4, trip5]);
 
     //Close connection so as not to leave hanging connections
     sequelize.close();

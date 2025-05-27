@@ -120,7 +120,7 @@ Trip.init(
             type: DataTypes.FLOAT,
         },
         sentenceDesc: {
-            type: DataTypes.STRING(100),
+            type: DataTypes.STRING(1000), //We might want to play with this number at some point
         },
         blurb: {
             type: DataTypes.TEXT,

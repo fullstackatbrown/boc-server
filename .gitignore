@@ -36,3 +36,7 @@ log.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# other
+test_json.json
+requirement.txt
