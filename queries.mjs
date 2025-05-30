@@ -173,7 +173,7 @@ async function createTrip(leader, tripJson) {
     );
   let { leaders, ...tripObj } = tripJson;
   if (!Array.isArray(leaders))
-    throw new InvalidDataError("leaders field not an array");
+    throw new InvalidDataError("Leaders field not an array");
   //Gather (and certify existence of) all involved leaders' objects
   let leaderObjs = leaders.map((email) => {
     return User.findOne({
@@ -188,6 +188,7 @@ async function createTrip(leader, tripJson) {
   if (!leaderObjs.every((leaderObj) => leaderObj))
     throw new InvalidDataError("At least one specified leader doesn't exist");
   leaderObjs = [...new Set(leaderObjs)]; //Eliminate duplicates
+  logger.log(leaderObjs)
   //Begin transaction
   const trans = await sequelize.transaction();
   try {

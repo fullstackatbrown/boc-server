@@ -56,6 +56,7 @@ async function authenticate(req, res, next) {
       },
     );
 
+    
     let user = await User.findOne({
       where: {
         email: response.data.email,
@@ -75,6 +76,7 @@ async function authenticate(req, res, next) {
     next();
   } catch (error) {
     // Continue as if the user is not authenticated
+    logger.log("Authentication for user failed: " + error)
     next();
   }
 }
@@ -350,7 +352,7 @@ app.use(
 //Error handlers
 app.use(async (err, _req, res, _next) => {
   if (err instanceof Sequelize.BaseError) {
-    //logger.log(err.message);
+    logger.log(err.message);
     res.status(422).json({
       errMessage:
         "SQL operation failure. Possible sources: broken unique constraint, data too long, or data of wrong type",

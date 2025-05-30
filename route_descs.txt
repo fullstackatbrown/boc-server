@@ -66,7 +66,7 @@ Creation Json:
 {
     leaders: [<leader_email1>, ...], //Not necessarily including the email of the creating leader, whose role is implicit
     tripName: <trip_name>,
-    plannedDate: <date_obj>, //Specific up to the day of the trip (but necessarily the hour)
+    plannedDate: <date_obj>, //Specific up to the day of the trip (but not necessarily the hour)
     maxSize: <max_num_participants>,
     class: <price_class>, //Options include characters A-J (see marketplace) plus Z (for free trips)
     priceOverride: <price_float>, //Only class or price_override should be defined (but one has to be)
