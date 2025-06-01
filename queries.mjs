@@ -55,6 +55,14 @@ function getLeaders() {
   return leaders;
 }
 
+function getBasicUserData(user) {
+  //Cleanse of properties we want to hide
+  user = user.toJSON()
+  delete user.id;
+  delete user.lotteryWeight;
+  return user;
+}
+
 async function getUserData(user) {
   //Lazy load in signups
   const signups = await user.getTripSignUps({
@@ -423,6 +431,7 @@ async function alterRole(userId, emailOfUserToAlter, newRole) {
 export default {
   getTrips,
   getLeaders,
+  getBasicUserData,
   getUserData,
   getTripData,
   createUser,

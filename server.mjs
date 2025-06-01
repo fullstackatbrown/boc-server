@@ -13,6 +13,7 @@ import queries from "./queries.mjs";
 const {
   getTrips,
   getLeaders,
+  getBasicUserData,
   getUserData,
   getTripData,
   createUser,
@@ -90,6 +91,7 @@ function phonyAuth(req, _res, next) {
 
 //Throws an error if user isn't logged in
 function loggedIn(req, _res, next) {
+  logger.log(req.userId)
   if (!req.userId) throw new AuthError();
   next();
 }
@@ -217,7 +219,7 @@ let protectedRoutes = [
   "/create-trip",
   "/signup",
   "trip/:tripId/*",
-]; //Does not includ trip/:tripId itself
+]; //Does not include trip/:tripId itself
 app.use(protectedRoutes, loggedIn);
 
 //Trip leader route handlers
@@ -293,6 +295,12 @@ const userRouter = express.Router();
 userRouter.use(loggedIn);
 userRouter.use(asyncHandler(grabUser));
 
+userRouter.get(
+  "/",
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await getBasicUserData(req.User));
+  }),
+);
 userRouter.get(
   "/profile",
   asyncHandler(async (req, res) => {
