@@ -187,8 +187,9 @@ async function createTrip(leader, tripJson) {
   leaderObjs = await Promise.all(leaderObjs);
   if (!leaderObjs.every((leaderObj) => leaderObj))
     throw new InvalidDataError("At least one specified leader doesn't exist");
-  leaderObjs = [...new Set(leaderObjs)]; //Eliminate duplicates
-  logger.log(leaderObjs)
+  //Eliminate duplicates
+  const leaderEmails = leaderObjs.map(leader => leader.email);
+  leaderObjs = leaderObjs.filter((leader, idx) => !leaderEmails.slice(0,idx).includes(leader.email) );
   //Begin transaction
   const trans = await sequelize.transaction();
   try {
