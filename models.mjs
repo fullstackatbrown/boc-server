@@ -98,9 +98,17 @@ Trip.init(
             type: DataTypes.STRING(50),
             allowNull: false,
         },
+        category : {
+            type: DataTypes.ENUM('Hiking', 'Camping', 'Backpacking', 'Biking', 'Climbing', 'Skiing', 'Water', 'Event', 'Running', 'Exploration', 'Local', 'Special'),
+            allowNull: false,
+            defaultValue: 'Special',
+        },
         plannedDate: {
             type: DataTypes.DATE,
             allowNull: false,
+        },
+        plannedEndDate : {
+            type: DataTypes.DATE,
         },
         maxSize: {
             type: DataTypes.INTEGER,

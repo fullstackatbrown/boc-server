@@ -78,68 +78,54 @@ async function getUserData(user) {
 
 //TODO: Consider if trip leaders might ever want to see their trip pages as public sees them
 async function getTripData(tripId, userId) {
-  //Grab trip data
+  //Grab trip and signup data
   let trip = await Trip.findByPk(tripId);
-  let userData;
-
-  if (userId == null) {
-    // Not logged in
-    if (!(trip.status == "Open")) {
-      throw new AuthError("Trip is not currently public");
-    }
-
-    delete trip.dataValues.planningChecklist;
-    userData = null;
-  } else {
-    const signup = await TripSignUp.findOne({
+  const signup = (
+    userId !== null
+    ? await TripSignUp.findOne({ //May also return null, if no such signup exists
       where: {
         tripId: trip.id,
         userId: userId,
       },
       attributes: { exclude: ["userId"] },
-    });
-
-    if (signup === null) {
-      // Not signed up
-      if (!(trip.status == "Open")) {
-        throw new AuthError("Trip is not currently public");
-      }
-      delete trip.dataValues.planningChecklist;
-      userData = -1;
-    } else {
-      userData = signup.toJSON();
-      if (signup.tripRole == "Leader") {
-        //User is a Leader
-        //Include other leaders' names and emails
-        const otherLeaderSignups = await trip.getTripSignUps({
-          where: {
-            tripRole: "Leader",
-            userId: { [Op.not]: userId },
-          },
-          include: {
-            model: User,
-            attributes: ["firstName", "lastName", "email"],
-          },
-        });
-        const otherLeaders = otherLeaderSignups.map((signup) => signup.User);
-        trip.setDataValue("otherLeaders", otherLeaders);
-        if (["Pre-Trip", "Post-Trip", "Complete"].includes(trip.status)) {
-          //Include all signed up participants' trip data
-          const participants = await trip.getTripSignUps({
-            where: {
-              status: { [Op.regexp]: "^(Selected|Participated|No Show)$" },
-            },
-          });
-          trip.setDataValue("participants", participants);
-        }
-      } else {
-        //User is a Participant
-        delete trip.dataValues.planningChecklist;
-      }
+    }) 
+    : null
+  );
+  // Add leader data to trip
+  const leaderSignups = await trip.getTripSignUps({
+    where: {
+      tripRole: "Leader",
+    },
+    include: {
+      model: User,
+      attributes: ["firstName", "lastName", "email"],
+    },
+  });
+  const leaders = leaderSignups.map((signup) => signup.User);
+  trip.setDataValue("leaders", leaders);
+  // Determine what user data to return based on user's status wrt the trip
+  let userData;
+  if (signup == null) { // Not logged in or not signed up for the trip
+    if (trip.status == 'Staging') {
+      throw new AuthError("Trip is not currently public");
+    }
+    delete trip.dataValues.planningChecklist;
+    userData = null;
+  } else if (signup.tripRole == "Participant") {
+    userData = signup.toJSON();
+    delete trip.dataValues.planningChecklist;
+  } else if (signup.tripRole == "Leader") {
+    userData = signup.toJSON();
+    if (["Pre-Trip", "Post-Trip", "Complete"].includes(trip.status)) {
+      //Include all signed up participants' trip data
+      const participants = await trip.getTripSignUps({
+        where: {
+          status: { [Op.regexp]: "^(Selected|Participated|No Show)$" },
+        },
+      });
+      trip.setDataValue("participants", participants);
     }
   }
-
-  //Decide what data to send back to user based on signup status
   trip.setDataValue("userData", userData);
   return trip;
 }
@@ -166,7 +152,9 @@ async function addPhone(user, phoneNum) {
 const tripCreationFields = [
   "leaders",
   "tripName",
+  "category",
   "plannedDate",
+  "plannedEndDate",
   "maxSize",
   "class",
   "priceOverride",
@@ -174,6 +162,7 @@ const tripCreationFields = [
   "blurb",
 ];
 async function createTrip(leader, tripJson) {
+  logger.log(tripJson);
   //Sanitize/parse input
   if (!hasFields(tripJson, tripCreationFields))
     throw new InvalidDataError(
