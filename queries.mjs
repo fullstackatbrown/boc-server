@@ -81,7 +81,7 @@ async function getTripData(tripId, userId) {
   //Grab trip and signup data
   let trip = await Trip.findByPk(tripId);
   const signup = (
-    userId !== null
+    userId
     ? await TripSignUp.findOne({ //May also return null, if no such signup exists
       where: {
         tripId: trip.id,
@@ -385,6 +385,7 @@ async function tripSignup(userId, tripId) {
   return signup;
 }
 
+//Assumes userId is non-null
 async function isSignedUp(userId, tripId) {
   const signup = await TripSignUp.findOne({
     where: {
