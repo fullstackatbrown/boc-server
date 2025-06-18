@@ -36,6 +36,12 @@ const { User, Trip, TripSignUp, TripClass } = models;
         email: 'alan_wang2@brown.edu',
         role: 'Admin',
     });
+    let user3 = User.upsert({
+        firstName: 'Test',
+        lastName: 'Dude',
+        email: 'test@du.de',
+        role: 'Participant',
+    })
 
     let trip = Trip.upsert({
         id: 1, //Will create endless copies if this is not set to 1
@@ -92,7 +98,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
         class: 'Z',
         sentenceDesc: `Yeah, this is just some other trip *shrug*.`,
     })
-    await Promise.all([user, user2, trip, trip2, trip3, trip4, trip5]);
+    await Promise.all([user, user2, user3, trip, trip2, trip3, trip4, trip5]);
 
     //Close connection so as not to leave hanging connections
     sequelize.close();

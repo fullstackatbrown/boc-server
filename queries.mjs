@@ -80,6 +80,7 @@ async function getUserData(user) {
 async function getTripData(tripId, userId) {
   //Grab trip and signup data
   let trip = await Trip.findByPk(tripId);
+  if (!trip) throw new NonexistenceError("There is no trip associated with the requested trip ID")
   const signup = (
     userId
     ? await TripSignUp.findOne({ //May also return null, if no such signup exists

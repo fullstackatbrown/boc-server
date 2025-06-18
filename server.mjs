@@ -83,7 +83,7 @@ async function authenticate(req, res, next) {
 }
 
 //Replacement authentication for testing; Change TESTID to take actions on differing accounts
-const TESTID = 1;
+const TESTID = 3;
 function phonyAuth(req, _res, next) {
   req.userId = TESTID;
   next();
@@ -212,7 +212,8 @@ app.use(logRequest);
 import authRouter from "./auth.mjs";
 app.use("/auth", authRouter);
 
-app.use(authenticate);
+//app.use(authenticate);
+app.use(phonyAuth)
 let protectedRoutes = [
   "/profile",
   "/add-phone",
