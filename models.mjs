@@ -182,15 +182,23 @@ TripSignUp.init(
         },
         status: {
             type: DataTypes.ENUM('Signed Up','Selected','Not Selected','Attended','No Show'),
+            allowNull: false,
             defaultValue: 'Signed Up',
         },
         needPaperwork: {
             type: DataTypes.BOOLEAN,
+            allowNull: false,
             defaultValue: false,
         },
         confirmed: {
             type: DataTypes.BOOLEAN,
+            allowNull: false,
             defaultValue: false,
+        },
+        paid: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false, 
         },
     },
     { // OPTIONS

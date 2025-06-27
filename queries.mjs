@@ -397,8 +397,19 @@ async function isSignedUp(userId, tripId) {
   return !signup ? false : true;
 }
 
-//TODO: add and test route
-async function confirmSignup(userId, tripId) {}
+async function confirmSignup(signup) {
+  signup.confirmed = true;
+  return signup.save()
+}
+
+async function cancelSignup(signup) {
+  return signup.destroy()
+}
+
+async function reportPaid(signup) {
+  signup.paid = true;
+  return signup.save()
+}
 
 //TODO: add and test route
 async function alterRole(userId, emailOfUserToAlter, newRole) {
@@ -435,4 +446,7 @@ export default {
   doAttendance,
   tripSignup,
   isSignedUp,
+  confirmSignup,
+  cancelSignup,
+  reportPaid,
 };

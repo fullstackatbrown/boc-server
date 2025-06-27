@@ -26,6 +26,9 @@ const {
   doAttendance,
   tripSignup,
   isSignedUp,
+  confirmSignup,
+  cancelSignup,
+  reportPaid,
 } = queries;
 
 import axios from "axios";
@@ -284,10 +287,18 @@ tripRouter.post(
     res.sendStatus(200);
   }),
 );
-/*
 tripRouter.post("/participate/confirm", asyncHandler(async (req, res) => {
-  await tripSignup(req.User, )
-}))*/
+  await confirmSignup(req.Signup);
+  res.sendStatus(200);
+}));
+tripRouter.post("/participate/cancel", asyncHandler(async (req, res) => {
+  await cancelSignup(req.Signup);
+  res.sendStatus(200);
+}));
+tripRouter.post("/participate/pay", asyncHandler(async (req, res) => {
+  await reportPaid(req.Signup);
+  res.sendStatus(200);
+}));
 
 app.use("/trip/:tripId", tripRouter);
 
