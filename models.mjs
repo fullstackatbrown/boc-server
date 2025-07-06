@@ -57,6 +57,11 @@ User.init(
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 0,
+        },
+        joinedListserv: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
         }
     },
     { // OPTIONS
@@ -64,7 +69,6 @@ User.init(
         //Preserves snake_case notation
         tableName: 'users',
         underscored: true,
-
     }
 );
 

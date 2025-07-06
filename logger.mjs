@@ -1,4 +1,3 @@
-import { join } from 'path';
 import { promises as fs } from "fs";
 import moment from "moment";
 //Create logger logging to path LOG_FILE

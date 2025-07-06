@@ -29,6 +29,7 @@ const {
   confirmSignup,
   cancelSignup,
   reportPaid,
+  listervAdd,
 } = queries;
 
 import axios from "axios";
@@ -215,8 +216,8 @@ app.use(logRequest);
 import authRouter from "./auth.mjs";
 app.use("/auth", authRouter);
 
-//app.use(authenticate);
-app.use(phonyAuth)
+app.use(authenticate);
+//app.use(phonyAuth)
 let protectedRoutes = [
   "/profile",
   "/add-phone",
@@ -325,6 +326,13 @@ userRouter.post(
     if (!req.body.hasOwnProperty("phoneNum"))
       throw new InvalidDataError("Request body lacking phoneNum field");
     await addPhone(req.User, req.body.phoneNum);
+    res.sendStatus(200);
+  }),
+);
+userRouter.post(
+  "/listserv-add",
+  asyncHandler(async (req, res) => {
+    await listervAdd(req.User);
     res.sendStatus(200);
   }),
 );

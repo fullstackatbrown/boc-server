@@ -3,6 +3,7 @@ import sequelize from "./sequelize.mjs";
 import models from "./models.mjs";
 const { User, Trip, TripSignUp, TripClass } = models;
 import errors from "./errors.mjs";
+import { promises as fs } from "fs";
 const {
   AuthError,
   NonexistenceError,
@@ -146,6 +147,13 @@ function createUser(firstName, lastName, email) {
 async function addPhone(user, phoneNum) {
   phoneNum = String(phoneNum).replace(/[^0-9]/g, ""); //Removes all non-numeric characters (whitespace, parens, dashes, etc.)
   user.phone = phoneNum;
+  return user.save();
+}
+
+const LISTSERV_FILE = "./listserv-additions.txt"
+async function listervAdd(user) {
+  fs.appendFile(LISTSERV_FILE, user.email + "\n");
+  user.joinedListserv = true;
   return user.save();
 }
 
@@ -449,4 +457,5 @@ export default {
   confirmSignup,
   cancelSignup,
   reportPaid,
+  listervAdd,
 };
