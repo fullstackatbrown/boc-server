@@ -171,7 +171,6 @@ const tripCreationFields = [
   "blurb",
 ];
 async function createTrip(leader, tripJson) {
-  logger.log(tripJson);
   //Sanitize/parse input
   if (!hasFields(tripJson, tripCreationFields))
     throw new InvalidDataError(
@@ -246,7 +245,7 @@ async function taskUpdate(trip, taskJson) {
   return trip.save();
 }
 
-let tripUpdateFields = [...tripCreationFields.slice(1)];
+let tripUpdateFields = [...tripCreationFields.slice(1), "newLeader"];
 async function tripUpdate(trip, alterJson) {
   //Sanitize
   if (!validFields(alterJson, tripUpdateFields))
@@ -262,8 +261,49 @@ async function tripUpdate(trip, alterJson) {
     );
   }
   //Update trip
+  if (alterJson.newLeader) {
+    try { await addLeader(trip, alterJson.newLeader); }
+    catch (err) { throw err  } // Propogate errors so they gets properly handled 
+    delete alterJson.newLeader; //Make sure newLeader doesn't foul up Object.assign
+  }
   Object.assign(trip, alterJson);
   return trip.save();
+}
+
+//NEEDS ACTUAL TESTING
+async function addLeader(trip, leaderEmail) { //This is an unexposed function - used by tripUpdate
+  //Find leader
+  let newLeader = await User.findOne({
+    where: {
+      email: leaderEmail,
+      role: { [Op.regexp]: "(Admin|Leader)" },
+    },
+  });
+  if (!newLeader) throw new InvalidDataError("Provided leader email invalid");
+  //See if leader already has a signup and handle accordingly
+  let signup = await TripSignUp.findOne({
+    where: {
+      userId: newLeader.id,
+      tripId: trip.id,
+    }
+  });
+  if (signup && (signup.tripRole == "Leader")) throw new InvalidDataError("Provided leader to add is already a trip leader");
+  else if (signup && (signup.tripRole == "Particpant")) { //If they are currently a participant, turn them into a leader
+    Object.assign(signup, {
+      tripRole: "Leader",
+      status: null, 
+      needPaperwork: null,
+      confirmed: null, 
+      paid: null
+    });
+    return signup.save();
+  } else { //There's no pre-existing signup, so let's make a new one
+    return TripSignUp.create({
+      userId: newLeader.id,
+      tripId: trip.id,
+      tripRole: "Leader",
+    })
+  }
 }
 
 async function openTrip(trip) {

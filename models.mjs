@@ -108,11 +108,11 @@ Trip.init(
             defaultValue: 'Special',
         },
         plannedDate: {
-            type: DataTypes.DATE,
+            type: DataTypes.DATEONLY,
             allowNull: false,
         },
         plannedEndDate : {
-            type: DataTypes.DATE,
+            type: DataTypes.DATEONLY,
         },
         maxSize: {
             type: DataTypes.INTEGER,
@@ -186,22 +186,18 @@ TripSignUp.init(
         },
         status: {
             type: DataTypes.ENUM('Signed Up','Selected','Not Selected','Attended','No Show'),
-            allowNull: false,
             defaultValue: 'Signed Up',
         },
         needPaperwork: {
             type: DataTypes.BOOLEAN,
-            allowNull: false,
             defaultValue: false,
         },
         confirmed: {
             type: DataTypes.BOOLEAN,
-            allowNull: false,
             defaultValue: false,
         },
         paid: {
             type: DataTypes.BOOLEAN,
-            allowNull: false,
             defaultValue: false, 
         },
     },
@@ -213,12 +209,13 @@ TripSignUp.init(
     }
 );
 
-//Overrides default values of status, needPaperwork, and confirmed to null for leaders
+//Overrides default values of status, needPaperwork, confirmed, and paid to null for leaders
 TripSignUp.beforeValidate((inst) => {
     if (inst.tripRole === 'Leader') {
         inst.status = null;
         inst.needPaperwork = null;
         inst.confirmed = null;
+        inst.paid = null;
     }
 });
 
