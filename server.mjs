@@ -19,6 +19,7 @@ const {
   createUser,
   addPhone,
   createTrip,
+  getTripParticipants,
   taskUpdate,
   tripUpdate,
   openTrip,
@@ -69,7 +70,7 @@ async function authenticate(req, res, next) {
     });
 
     if (user == null) {
-      user = createUser(
+      user = await createUser(
         response.data.given_name,
         response.data.family_name ? response.data.family_name : "",
         response.data.email,
@@ -87,7 +88,7 @@ async function authenticate(req, res, next) {
 }
 
 //Replacement authentication for testing; Change TESTID to take actions on differing accounts
-const TESTID = 3;
+const TESTID = 1;
 function phonyAuth(req, _res, next) {
   req.userId = TESTID;
   next();
@@ -254,6 +255,12 @@ tripRouter.post(
     res.sendStatus(200);
   }),
 );
+tripRouter.get(
+  "/lead/participants",
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await getTripParticipants(req.Trip));
+  }),
+)
 tripRouter.post(
   "/lead/task",
   asyncHandler(async (req, res) => {

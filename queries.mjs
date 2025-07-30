@@ -219,6 +219,28 @@ async function createTrip(leader, tripJson) {
   }
 }
 
+async function getTripParticipants(trip) {
+  let participants = await trip.getUsers({
+    attributes: ["firstName", "lastName", "email"],
+    through: {
+      where: { tripRole: "Participant" },
+      // attributes: ["status", "confirmed", "paid"] - Doesn't seem to work, weirdly
+    }
+  });
+  participants = participants.map((participant) => {
+    let signup = participant.TripSignUp;
+    participant = participant.toJSON();
+    Object.assign(participant, {
+      status: signup.status,
+      confirmed: signup.confirmed,
+      paid: signup.paid,
+    });
+    delete participant["TripSignUp"];
+    return participant;
+  })
+  return participants;
+}
+
 const taskUpdateFields = ["task", "responsible", "complete"];
 const autoTasks = ["Lottery", "Attendance"];
 async function taskUpdate(trip, taskJson) {
@@ -487,6 +509,7 @@ export default {
   createUser,
   addPhone,
   createTrip,
+  getTripParticipants, 
   taskUpdate,
   tripUpdate,
   openTrip,
