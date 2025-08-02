@@ -91,6 +91,7 @@ function phonyAuth(req, _res, next) {
 
 //Throws an error if user isn't logged in
 function loggedIn(req, _res, next) {
+  console.log("AHHHHH")
   logger.log(req.userId)
   if (!req.userId) throw new AuthError();
   next();
