@@ -1,6 +1,6 @@
 import logger from "./logger.mjs";
 import models from "./models.mjs";
-const { User, Trip, TripSignUp, TripClass } = models;
+const { User, Trip, TripSignUp } = models;
 import errors from "./errors.mjs";
 const {
   AuthError,
@@ -19,6 +19,7 @@ const {
   createUser,
   addPhone,
   createTrip,
+  getTripParticipants,
   taskUpdate,
   tripUpdate,
   openTrip,
@@ -26,7 +27,13 @@ const {
   doAttendance,
   tripSignup,
   isSignedUp,
+  confirmSignup,
+  cancelSignup,
+  reportPaid,
+  listervAdd,
 } = queries;
+import cron from "node-cron";
+import jobs from "./server_jobs.mjs";
 
 import axios from "axios";
 
@@ -65,7 +72,7 @@ async function authenticate(req, res, next) {
     });
 
     if (user == null) {
-      user = createUser(
+      user = await createUser(
         response.data.given_name,
         response.data.family_name ? response.data.family_name : "",
         response.data.email,
@@ -214,6 +221,7 @@ import authRouter from "./auth.mjs";
 app.use("/auth", authRouter);
 
 app.use(authenticate);
+//app.use(phonyAuth)
 let protectedRoutes = [
   "/profile",
   "/add-phone",
@@ -250,6 +258,12 @@ tripRouter.post(
     res.sendStatus(200);
   }),
 );
+tripRouter.get(
+  "/lead/participants",
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await getTripParticipants(req.Trip));
+  }),
+)
 tripRouter.post(
   "/lead/task",
   asyncHandler(async (req, res) => {
@@ -284,10 +298,18 @@ tripRouter.post(
     res.sendStatus(200);
   }),
 );
-/*
 tripRouter.post("/participate/confirm", asyncHandler(async (req, res) => {
-  await tripSignup(req.User, )
-}))*/
+  await confirmSignup(req.Signup);
+  res.sendStatus(200);
+}));
+tripRouter.post("/participate/cancel", asyncHandler(async (req, res) => {
+  await cancelSignup(req.Signup);
+  res.sendStatus(200);
+}));
+tripRouter.post("/participate/pay", asyncHandler(async (req, res) => {
+  await reportPaid(req.Signup);
+  res.sendStatus(200);
+}));
 
 app.use("/trip/:tripId", tripRouter);
 
@@ -314,6 +336,13 @@ userRouter.post(
     if (!req.body.hasOwnProperty("phoneNum"))
       throw new InvalidDataError("Request body lacking phoneNum field");
     await addPhone(req.User, req.body.phoneNum);
+    res.sendStatus(200);
+  }),
+);
+userRouter.post(
+  "/listserv-add",
+  asyncHandler(async (req, res) => {
+    await listervAdd(req.User);
     res.sendStatus(200);
   }),
 );
@@ -404,7 +433,10 @@ process.on("uncaughtException", (reason, exception_origin) => {
 });
 */
 
-// set port, listen for requests
+//Initialize all server jobs
+jobs.forEach((job) => cron.schedule(job.cronString, job.job));
+
+//Set port, listen for requests
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, async () => {
   logger.log(`STARTUP: Running on port ${PORT}.`);

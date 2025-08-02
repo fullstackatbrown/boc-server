@@ -57,6 +57,11 @@ User.init(
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 0,
+        },
+        joinedListserv: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
         }
     },
     { // OPTIONS
@@ -64,7 +69,6 @@ User.init(
         //Preserves snake_case notation
         tableName: 'users',
         underscored: true,
-
     }
 );
 
@@ -104,11 +108,11 @@ Trip.init(
             defaultValue: 'Special',
         },
         plannedDate: {
-            type: DataTypes.DATE,
+            type: DataTypes.DATEONLY,
             allowNull: false,
         },
         plannedEndDate : {
-            type: DataTypes.DATE,
+            type: DataTypes.DATEONLY,
         },
         maxSize: {
             type: DataTypes.INTEGER,
@@ -192,6 +196,10 @@ TripSignUp.init(
             type: DataTypes.BOOLEAN,
             defaultValue: false,
         },
+        paid: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false, 
+        },
     },
     { // OPTIONS
         sequelize,
@@ -201,12 +209,13 @@ TripSignUp.init(
     }
 );
 
-//Overrides default values of status, needPaperwork, and confirmed to null for leaders
+//Overrides default values of status, needPaperwork, confirmed, and paid to null for leaders
 TripSignUp.beforeValidate((inst) => {
     if (inst.tripRole === 'Leader') {
         inst.status = null;
         inst.needPaperwork = null;
         inst.confirmed = null;
+        inst.paid = null;
     }
 });
 

@@ -3,6 +3,7 @@ import sequelize from "./sequelize.mjs";
 import models from "./models.mjs";
 const { User, Trip, TripSignUp, TripClass } = models;
 import errors from "./errors.mjs";
+import { promises as fs } from "fs";
 const {
   AuthError,
   NonexistenceError,
@@ -80,6 +81,7 @@ async function getUserData(user) {
 async function getTripData(tripId, userId) {
   //Grab trip and signup data
   let trip = await Trip.findByPk(tripId);
+  if (!trip) throw new NonexistenceError("There is no trip associated with the requested trip ID")
   const signup = (
     userId
     ? await TripSignUp.findOne({ //May also return null, if no such signup exists
@@ -148,6 +150,13 @@ async function addPhone(user, phoneNum) {
   return user.save();
 }
 
+const LISTSERV_FILE = "./listserv-additions.txt"
+async function listervAdd(user) {
+  fs.appendFile(LISTSERV_FILE, user.email + "\n");
+  user.joinedListserv = true;
+  return user.save();
+}
+
 //TODO: return leaders on trip as well
 const tripCreationFields = [
   "leaders",
@@ -162,7 +171,6 @@ const tripCreationFields = [
   "blurb",
 ];
 async function createTrip(leader, tripJson) {
-  logger.log(tripJson);
   //Sanitize/parse input
   if (!hasFields(tripJson, tripCreationFields))
     throw new InvalidDataError(
@@ -211,6 +219,28 @@ async function createTrip(leader, tripJson) {
   }
 }
 
+async function getTripParticipants(trip) {
+  let participants = await trip.getUsers({
+    attributes: ["firstName", "lastName", "email"],
+    through: {
+      where: { tripRole: "Participant" },
+      // attributes: ["status", "confirmed", "paid"] - Doesn't seem to work, weirdly
+    }
+  });
+  participants = participants.map((participant) => {
+    let signup = participant.TripSignUp;
+    participant = participant.toJSON();
+    Object.assign(participant, {
+      status: signup.status,
+      confirmed: signup.confirmed,
+      paid: signup.paid,
+    });
+    delete participant["TripSignUp"];
+    return participant;
+  })
+  return participants;
+}
+
 const taskUpdateFields = ["task", "responsible", "complete"];
 const autoTasks = ["Lottery", "Attendance"];
 async function taskUpdate(trip, taskJson) {
@@ -237,7 +267,7 @@ async function taskUpdate(trip, taskJson) {
   return trip.save();
 }
 
-let tripUpdateFields = [...tripCreationFields.slice(1)];
+let tripUpdateFields = [...tripCreationFields.slice(1), "newLeader"];
 async function tripUpdate(trip, alterJson) {
   //Sanitize
   if (!validFields(alterJson, tripUpdateFields))
@@ -253,8 +283,49 @@ async function tripUpdate(trip, alterJson) {
     );
   }
   //Update trip
+  if (alterJson.newLeader) {
+    try { await addLeader(trip, alterJson.newLeader); }
+    catch (err) { throw err  } // Propogate errors so they gets properly handled 
+    delete alterJson.newLeader; //Make sure newLeader doesn't foul up Object.assign
+  }
   Object.assign(trip, alterJson);
   return trip.save();
+}
+
+//NEEDS ACTUAL TESTING
+async function addLeader(trip, leaderEmail) { //This is an unexposed function - used by tripUpdate
+  //Find leader
+  let newLeader = await User.findOne({
+    where: {
+      email: leaderEmail,
+      role: { [Op.regexp]: "(Admin|Leader)" },
+    },
+  });
+  if (!newLeader) throw new InvalidDataError("Provided leader email invalid");
+  //See if leader already has a signup and handle accordingly
+  let signup = await TripSignUp.findOne({
+    where: {
+      userId: newLeader.id,
+      tripId: trip.id,
+    }
+  });
+  if (signup && (signup.tripRole == "Leader")) throw new InvalidDataError("Provided leader to add is already a trip leader");
+  else if (signup && (signup.tripRole == "Particpant")) { //If they are currently a participant, turn them into a leader
+    Object.assign(signup, {
+      tripRole: "Leader",
+      status: null, 
+      needPaperwork: null,
+      confirmed: null, 
+      paid: null
+    });
+    return signup.save();
+  } else { //There's no pre-existing signup, so let's make a new one
+    return TripSignUp.create({
+      userId: newLeader.id,
+      tripId: trip.id,
+      tripRole: "Leader",
+    })
+  }
 }
 
 async function openTrip(trip) {
@@ -322,6 +393,14 @@ async function runLottery(trip) {
     accepted: winnaEmails,
     notAccepted: wompEmails,
   };
+}
+
+async function runTrip(trip) {
+  const todaysDateonly = new Date().toISOString().slice(0, 10);
+  if (!(trip.status == "Pre-Trip" && trip.plannedDate <= todaysDateonly)) throw new IllegalOperationError("Trip may not be run before its planned date and must be in Pre-Trip state");
+  //DESIGN CHOICE: Don't jettison off all users who haven't confirmed - leave that to trip leader's discretion
+  trip.status = "Post-Trip";
+  return trip.save();
 }
 
 //TODO: encapsulate database manipulation in transaction
@@ -396,8 +475,19 @@ async function isSignedUp(userId, tripId) {
   return !signup ? false : true;
 }
 
-//TODO: add and test route
-async function confirmSignup(userId, tripId) {}
+async function confirmSignup(signup) {
+  signup.confirmed = true;
+  return signup.save()
+}
+
+async function cancelSignup(signup) {
+  return signup.destroy()
+}
+
+async function reportPaid(signup) {
+  signup.paid = true;
+  return signup.save()
+}
 
 //TODO: add and test route
 async function alterRole(userId, emailOfUserToAlter, newRole) {
@@ -427,11 +517,17 @@ export default {
   createUser,
   addPhone,
   createTrip,
+  getTripParticipants, 
   taskUpdate,
   tripUpdate,
   openTrip,
   runLottery,
+  runTrip,
   doAttendance,
   tripSignup,
   isSignedUp,
+  confirmSignup,
+  cancelSignup,
+  reportPaid,
+  listervAdd,
 };

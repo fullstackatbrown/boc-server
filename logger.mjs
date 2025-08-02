@@ -1,4 +1,3 @@
-import { join } from 'path';
 import { promises as fs } from "fs";
 import moment from "moment";
 //Create logger logging to path LOG_FILE
@@ -9,7 +8,7 @@ const logger = {
     let date = new Date();
     let curr_dt = moment(date).format("MM-DD HH:mm:ss (YYYY)");
     let log_str = `${curr_dt} - ${msg}\n`;
-    fs.appendFile(this.log_file, log_str);
+    await fs.appendFile(this.log_file, log_str);
   },
   async start() {
     try { await fs.rm(LOG_FILE); } //Refreshes log on startup
