@@ -395,6 +395,14 @@ async function runLottery(trip) {
   };
 }
 
+async function runTrip(trip) {
+  const todaysDateonly = new Date().toISOString().slice(0, 10);
+  if (!(trip.status == "Pre-Trip" && trip.plannedDate <= todaysDateonly)) throw new IllegalOperationError("Trip may not be run before its planned date and must be in Pre-Trip state");
+  //DESIGN CHOICE: Don't jettison off all users who haven't confirmed - leave that to trip leader's discretion
+  trip.status = "Post-Trip";
+  return trip.save();
+}
+
 //TODO: encapsulate database manipulation in transaction
 const attendanceStates = ["Participated", "Excused Absence", "No Show"];
 const NOSHOWPENALTY = 0.25;
@@ -514,6 +522,7 @@ export default {
   tripUpdate,
   openTrip,
   runLottery,
+  runTrip,
   doAttendance,
   tripSignup,
   isSignedUp,

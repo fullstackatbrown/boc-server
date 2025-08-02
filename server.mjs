@@ -1,6 +1,6 @@
 import logger from "./logger.mjs";
 import models from "./models.mjs";
-const { User, Trip, TripSignUp, TripClass } = models;
+const { User, Trip, TripSignUp } = models;
 import errors from "./errors.mjs";
 const {
   AuthError,
@@ -32,6 +32,8 @@ const {
   reportPaid,
   listervAdd,
 } = queries;
+import cron from "node-cron";
+import jobs from "./server_jobs.mjs";
 
 import axios from "axios";
 
@@ -430,7 +432,10 @@ process.on("uncaughtException", (reason, exception_origin) => {
 });
 */
 
-// set port, listen for requests
+//Initialize all server jobs
+jobs.forEach((job) => cron.schedule(job.cronString, job.job));
+
+//Set port, listen for requests
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, async () => {
   logger.log(`STARTUP: Running on port ${PORT}.`);
