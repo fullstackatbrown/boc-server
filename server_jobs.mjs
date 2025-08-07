@@ -5,9 +5,28 @@ import models from "./models.mjs";
 import { Op } from "sequelize";
 const { Trip } = models;
 
+async function destroyTrip(trip) {
+    const signups = trip.getTripSignups();
+    let proms = signups.map((signup) => signup.destroy());
+    proms.push(trip.destroy());
+    return Promise.all(proms)
+}
+
 async function runTrips() {
-    logger.log("[SERVER DAEMON] Runnning all of today's trips")
+    logger.log("[SERVER DAEMON] Runnning all of today's trips");
+    //Check if there are any open trips whose planned date is today/has passed and delete them
     const todaysDateonly = new Date().toISOString().slice(0, 10);
+    const tripsToDelete = await Trip.findAll({
+        where: {
+            status: "Open",
+            plannedDate: {
+                [Op.lte]: todaysDateonly,
+            }
+        }
+    });
+    if (tripsToDelete.length > 0) logger.log(`[SERVER DAEMON] Destroyed ${tripsToDelete.length} trips for being open on or past planned date`);
+    let proms = tripsToDelete.map(destroyTrip);
+    //Run trips that are due to be run
     const tripsToRun = await Trip.findAll({
         where: {
             status: "Pre-Trip",
@@ -17,16 +36,18 @@ async function runTrips() {
         }
     });
     const tripUpdateProms = tripsToRun.map(runTrip);
-    return Promise.all(tripUpdateProms);
+    proms.concat(tripUpdateProms);
+    return Promise.all(proms);
 }
 
 async function delOldTrips() {
     logger.log("[SERVER DAEMON] Destorying all old trips");
-    return Trip.destroy({
+    const oldTrips = await Trip.findAll({
         where: {
             status: "Complete"
         }
     });
+    return Promise.all(oldTrips.map(destroyTrip));
 }
 
 function jobify(cronString, job) {

@@ -41,7 +41,7 @@ function alterPc(trip, task, field, value) {
 function getTrips() {
   const pubTrips = Trip.findAll({
     attributes: { exclude: ["planningChecklist"] },
-    where: { status: "Open" },
+    where: { status: { [Op.ne]: "Staging" } },
   });
   return pubTrips;
 }
