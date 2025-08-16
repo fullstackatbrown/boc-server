@@ -1,3 +1,4 @@
+import "dotenv/config";
 import logger from "./logger.mjs";
 import models from "./models.mjs";
 const { User, Trip, TripSignUp } = models;
@@ -51,10 +52,9 @@ async function logRequest(req, _res, next) {
 
 //Checks authentication of incoming requests
 async function authenticate(req, res, next) {
-  const token = req.headers.token;
-
   try {
     // Use the token to fetch data from an external API
+    const token = req.headers.authorization.split(" ")[1];
     const response = await axios.get(
       "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
       {
@@ -64,7 +64,6 @@ async function authenticate(req, res, next) {
       },
     );
 
-    
     let user = await User.findOne({
       where: {
         email: response.data.email,
@@ -84,7 +83,7 @@ async function authenticate(req, res, next) {
     next();
   } catch (error) {
     // Continue as if the user is not authenticated
-    logger.log("Authentication for user failed: " + error)
+    logger.log("Authentication for user failed: " + error);
     next();
   }
 }
@@ -98,7 +97,7 @@ function phonyAuth(req, _res, next) {
 
 //Throws an error if user isn't logged in
 function loggedIn(req, _res, next) {
-  logger.log(req.userId)
+  logger.log(req.userId);
   if (!req.userId) throw new AuthError();
   next();
 }
@@ -215,10 +214,6 @@ app.use(cookieParser());
 //General middleware
 app.use(logRequest);
 
-//Auth router
-import authRouter from "./auth.mjs";
-app.use("/auth", authRouter);
-
 app.use(authenticate);
 //app.use(phonyAuth)
 let protectedRoutes = [
@@ -262,7 +257,7 @@ tripRouter.get(
   asyncHandler(async (req, res) => {
     res.status(200).json(await getTripParticipants(req.Trip));
   }),
-)
+);
 tripRouter.post(
   "/lead/task",
   asyncHandler(async (req, res) => {
@@ -297,18 +292,27 @@ tripRouter.post(
     res.sendStatus(200);
   }),
 );
-tripRouter.post("/participate/confirm", asyncHandler(async (req, res) => {
-  await confirmSignup(req.Signup);
-  res.sendStatus(200);
-}));
-tripRouter.post("/participate/cancel", asyncHandler(async (req, res) => {
-  await cancelSignup(req.Signup);
-  res.sendStatus(200);
-}));
-tripRouter.post("/participate/pay", asyncHandler(async (req, res) => {
-  await reportPaid(req.Signup);
-  res.sendStatus(200);
-}));
+tripRouter.post(
+  "/participate/confirm",
+  asyncHandler(async (req, res) => {
+    await confirmSignup(req.Signup);
+    res.sendStatus(200);
+  }),
+);
+tripRouter.post(
+  "/participate/cancel",
+  asyncHandler(async (req, res) => {
+    await cancelSignup(req.Signup);
+    res.sendStatus(200);
+  }),
+);
+tripRouter.post(
+  "/participate/pay",
+  asyncHandler(async (req, res) => {
+    await reportPaid(req.Signup);
+    res.sendStatus(200);
+  }),
+);
 
 app.use("/trip/:tripId", tripRouter);
 
