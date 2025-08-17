@@ -206,7 +206,7 @@ const app = express();
 //Configuration middleware
 const ACCEPTED_ORIGIN = "localhost:3000"; //IP of static files server for production
 const corsOptions = {
-  origin: `*`,
+  origin: `http://${ACCEPTED_ORIGIN}`,
   credentials: true,
 };
 app.use(cors(corsOptions)); //CORS options specifications
