@@ -204,7 +204,7 @@ const app = express();
 //
 
 //Configuration middleware
-const ACCEPTED_ORIGIN = "localhost:3000"; //IP of static files server for production
+const ACCEPTED_ORIGIN = "https://boc-client-jxzi.vercel.app"; //IP of static files server for production
 const corsOptions = {
   origin: `http://${ACCEPTED_ORIGIN}`,
   credentials: true,
