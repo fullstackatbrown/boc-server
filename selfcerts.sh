@@ -1,4 +1,4 @@
-mkdir certs
+mkdir -p certs
 cd certs
 
 openssl genrsa -out key.pem 2048
