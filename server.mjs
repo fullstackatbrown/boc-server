@@ -36,6 +36,9 @@ const {
 import cron from "node-cron";
 import jobs from "./server_jobs.mjs";
 
+import https from 'https';
+import fs from 'fs';
+
 import axios from "axios";
 
 //
@@ -440,7 +443,12 @@ process.on("uncaughtException", (reason, exception_origin) => {
 jobs.forEach((job) => cron.schedule(job.cronString, job.job));
 
 //Set port, listen for requests
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, async () => {
+const PORT = process.env.PORT || 443;
+
+const options = {
+  key: fs.readFileSync("certs/key.pem"),
+  cert: fs.readFileSync("certs/cert.pem")
+}
+https.createServer(options, app).listen(PORT, async () => {
   logger.log(`STARTUP: Running on port ${PORT}.`);
 });
