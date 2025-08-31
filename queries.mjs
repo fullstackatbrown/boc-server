@@ -169,6 +169,7 @@ const tripCreationFields = [
   "priceOverride",
   "sentenceDesc",
   "blurb",
+  "image",
 ];
 async function createTrip(leader, tripJson) {
   //Sanitize/parse input

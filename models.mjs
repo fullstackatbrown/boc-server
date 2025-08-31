@@ -137,6 +137,9 @@ Trip.init(
         blurb: {
             type: DataTypes.TEXT,
         },
+        image: {
+            type: DataTypes.STRING(512), //No URL will be longer than this... right?
+        },
         status: {
             type: DataTypes.ENUM('Staging','Open','Pre-Trip','Post-Trip','Complete'),
             allowNull: false,

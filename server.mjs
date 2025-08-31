@@ -100,7 +100,6 @@ function phonyAuth(req, _res, next) {
 
 //Throws an error if user isn't logged in
 function loggedIn(req, _res, next) {
-  logger.log(req.userId);
   if (!req.userId) throw new AuthError();
   next();
 }
@@ -216,9 +215,13 @@ app.use(cookieParser());
 
 //General middleware
 app.use(logRequest);
-
 app.use(authenticate);
 //app.use(phonyAuth)
+
+//Auth router
+import authRouter from "./auth.mjs";
+app.use("/auth", authRouter);
+
 let protectedRoutes = [
   "/profile",
   "/add-phone",
