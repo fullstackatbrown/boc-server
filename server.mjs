@@ -57,7 +57,7 @@ async function logRequest(req, _res, next) {
 async function authenticate(req, res, next) {
   try {
     // Use the token to fetch data from an external API
-    const token = req.headers.authorization.split(" ")[1];
+    const token = req.headers.authorization?.split(" ")[1];
     const response = await axios.get(
       "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
       {
