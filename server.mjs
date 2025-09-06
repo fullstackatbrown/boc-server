@@ -218,10 +218,6 @@ app.use(logRequest);
 app.use(authenticate);
 //app.use(phonyAuth)
 
-//Auth router
-import authRouter from "./auth.mjs";
-app.use("/auth", authRouter);
-
 let protectedRoutes = [
   "/profile",
   "/add-phone",
