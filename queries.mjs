@@ -242,6 +242,22 @@ async function getTripParticipants(trip) {
   return participants;
 }
 
+async function getPossibleParticipantEmails(trip) {
+  const leaders = await trip.getUsers({
+    attributes: ["email"],
+    through: {
+      where: { tripRole: "Leader" },
+    }
+  });
+  const leaderEmails = leaders.map(l => l.email);
+  const possibleParticipants = await User.findAll({
+    attributes: ["email"],
+    where: { email : { [Op.notIn] : leaderEmails } }
+  });
+  return possibleParticipants.map(p => p.email);
+
+}
+
 const taskUpdateFields = ["task", "responsible", "complete"];
 const autoTasks = ["Lottery", "Attendance"];
 async function taskUpdate(trip, taskJson) {
@@ -404,20 +420,59 @@ async function runTrip(trip) {
   return trip.save();
 }
 
+async function attendAdditionalParticipants(additionalParticipantEmails, selectedParticipantEmails, trip) {
+  //Check to make sure input emails are valid
+  const possibleParticipantEmails = await getPossibleParticipantEmails(trip);
+  if (!additionalParticipantEmails.every(e => possibleParticipantEmails.includes(e))) throw new InvalidDataError("Attendance cannot be taken for an email not registered with a user (or an email registered with a trip leader's account).");
+  //Filter out any potential duplicates between additional and selected participants emails
+  additionalParticipantEmails = additionalParticipantEmails.filter(e => !selectedParticipantEmails.includes(e));
+  //Find users associated with each additional participant email
+  const userProms = additionalParticipantEmails.map(e => {
+    return User.findOne({
+      where: { 
+        email: e
+      }
+    });
+  });
+  const users = await Promise.all(userProms);
+  //Create signups for all additional participants and increment their trips attended
+  const signupObjs = users.map(u => {
+    return {
+      userId: u.id,
+      tripId: trip.id,
+      tripRole: "Participant",
+      status: "Attended",
+      confirmed: true,
+    }
+  });
+  const signupCreationProm = TripSignUp.bulkCreate(signupObjs);
+  const tripsAttendedIncrProms = users.map(u => {
+    u.tripsParticipated += 1;
+    u.lotteryWeight = 1;
+    return u.save();
+  });
+  //Return all promises
+  tripsAttendedIncrProms.push(signupCreationProm)
+  return Promise.all(tripsAttendedIncrProms);
+}
+
 //TODO: encapsulate database manipulation in transaction
-const attendanceStates = ["Participated", "Excused Absence", "No Show"];
+const attendanceStates = ["Attended", "Excused Absence", "No Show"];
+const attendenceJsonFields = ["selectedParticipants", "additionalParticipants"];
 const NOSHOWPENALTY = 0.25;
 async function doAttendance(trip, attendanceJson) {
-  if (!(trip.status == "Pre-Trip" && trip.plannedDate < new Date()))
+  if (!(hasFields(attendanceJson, attendenceJsonFields) && validFields(attendanceJson, attendenceJsonFields))) throw new InvalidDataError("Attendance JSON does not contain the proper fields.")
+  const selectedParticipants = attendanceJson.selectedParticipants;
+  const additionalParticipants = attendanceJson.additionalParticipants;
+  //
+  //HANDLE SELECTED PARTICIPANTS
+  //
+  if (!(trip.status == "Post-Trip" && trip.plannedDate <= new Date().toLocaleString("en-US", { timeZone: "America/New_York" })))
     throw new IllegalOperationError(
-      "Attendance may only be taken after lottery has been ran and after trip's planned date",
+      "Attendance may only be taken after lottery has been ran and on/after trip's planned date",
     );
-  //Sanitize attendanceJson and fetch data
-  if (
-    !Object.values(attendanceJson).every((val) =>
-      attendanceStates.includes(val),
-    )
-  )
+  //Sanitize selectedParticipants and fetch data
+  if (!Object.values(selectedParticipants).every((val) => attendanceStates.includes(val)))
     throw new InvalidDataError(
       "At least one improper attendance state supplied",
     );
@@ -428,19 +483,22 @@ async function doAttendance(trip, attendanceJson) {
   trip.TripSignUps = signups;
   let emails = trip.TripSignUps.map((signup) => signup.User.email);
   if (
-    !hasFields(attendanceJson, emails) ||
-    !validFields(attendanceJson, emails)
+    !hasFields(selectedParticipants, emails) ||
+    !validFields(selectedParticipants, emails)
   )
     throw new IllegalOperationError(
-      "Attendance must be reported for all accepted participants (and only accepted participants) at once",
+      "Attendance must be reported for all accepted participants at once",
     );
+  //Take attendance of additional participants
+  const additionalAttendanceProm = attendAdditionalParticipants(additionalParticipants, emails, trip);
   //Change attendance of each participant and increment status of trip
   let attendProms = trip.TripSignUps.map((signup) => {
-    let attendance = attendanceJson[signup.User.email];
+    let attendance = selectedParticipants[signup.User.email];
     switch (attendance) {
-      case "Participated":
+      case "Attended":
         signup.status = "Attended";
         signup.User.tripsParticipated += 1;
+        signup.User.lotteryWeight = 1;
         return [signup.User.save(), signup.save()];
       case "Excused Absence":
         return signup.destroy(); //If they canceled, delete signup instance
@@ -450,8 +508,19 @@ async function doAttendance(trip, attendanceJson) {
         return [signup.User.save(), signup.save()];
     }
   }).flat();
-  trip.status = "Post-Trip";
-  alterPc(trip, "Lottery", "complete", true);
+  //Increment trips lead for trip leaders and change trip status to complete
+  const leaders = await trip.getUsers({
+    through: {
+      where: { tripRole: "Leader" },
+    }
+  });
+  const tripsLeadIncrProms = leaders.map(l => {
+    l.tripsLead += 1;
+    return l.save();
+  })
+  trip.status = "Complete";
+  //alterPc(trip, "Attendance", "complete", true);
+  attendProms.push(...tripsLeadIncrProms, additionalAttendanceProm);
   await Promise.all(attendProms);
   return trip.save();
 }
@@ -519,6 +588,7 @@ export default {
   addPhone,
   createTrip,
   getTripParticipants, 
+  getPossibleParticipantEmails,
   taskUpdate,
   tripUpdate,
   openTrip,

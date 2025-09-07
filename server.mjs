@@ -21,6 +21,7 @@ const {
   addPhone,
   createTrip,
   getTripParticipants,
+  getPossibleParticipantEmails,
   taskUpdate,
   tripUpdate,
   openTrip,
@@ -260,6 +261,12 @@ tripRouter.get(
     res.status(200).json(await getTripParticipants(req.Trip));
   }),
 );
+tripRouter.get(
+  "/lead/all-possible-participants",
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await getPossibleParticipantEmails(req.Trip));
+  })
+)
 tripRouter.post(
   "/lead/task",
   asyncHandler(async (req, res) => {
@@ -442,12 +449,20 @@ process.on("uncaughtException", (reason, exception_origin) => {
 jobs.forEach((job) => cron.schedule(job.cronString, job.job));
 
 //Set port, listen for requests
-const PORT = process.env.PORT || 443;
+const DEVELOPING = !!Number(process.env.DEVELOPING) || false;
+const PORT = process.env.PORT || (DEVELOPING ? 8080 : 443);
 
-const options = {
-  key: fs.readFileSync("certs/key.pem"),
-  cert: fs.readFileSync("certs/cert.pem")
+if (DEVELOPING) { //Just basic http listen
+  app.listen(PORT, async () => {
+    logger.log(`STARTUP: Running on port ${PORT}.`);
+  });
+} else { //Fancy deployment https listening with certs
+  const options = {
+    key: fs.readFileSync("certs/key.pem"),
+    cert: fs.readFileSync("certs/cert.pem")
+  }
+  
+  https.createServer(options, app).listen(PORT, async () => {
+    logger.log(`STARTUP: Running on port ${PORT}.`);
+  });
 }
-https.createServer(options, app).listen(PORT, async () => {
-  logger.log(`STARTUP: Running on port ${PORT}.`);
-});
