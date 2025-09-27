@@ -458,8 +458,8 @@ if (DEVELOPING) { //Just basic http listen
   });
 } else { //Fancy deployment https listening with certs
   const options = {
-    key: fs.readFileSync("certs/key.pem"),
-    cert: fs.readFileSync("certs/cert.pem")
+    key: fs.readFileSync("/etc/letsencrypt/live/backend.brownoutingclub.com/privkey.pem"),
+    cert: fs.readFileSync("/etc/letsencrypt/live/backend.brownoutingclub.com/fullchain.pem")
   }
   
   https.createServer(options, app).listen(PORT, async () => {
