@@ -88,9 +88,15 @@ Alter Json:
 }
 
 Attendance Json:
-{
-    <participant_email>: <attendance_status>, //attendance_status can be any of 'Participated', 'Excused Absence', or 'No Show'
-    ...
+{   
+    selectedParticipants: {
+        <participant_email>: <attendance_status>, //attendance_status can be any of 'Attended', 'Excused Absence', or 'No Show'
+        ...
+    },
+    additionalParticipants: [
+        <participant_email>,
+        ...
+    ]
 }
 
 Signup Json:
