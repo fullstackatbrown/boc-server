@@ -377,9 +377,12 @@ async function runLottery(trip) {
   lotteryPairs.sort((pair1, pair2) => pair2[0] - pair1[0]);
   let greatest_constraint = Math.min(trip.maxSize, lotteryPairs.length);
   let winnaWinnas = lotteryPairs.splice(0, greatest_constraint); //Leftovers are losers
+  let new_greatest_constraint = Math.min(trip.maxSize, lotteryPairs.length); //DESIGN CHOICE: allow up to trip.maxSize participants on waitlist
+  let waitlisters = lotteryPairs.splice(0, new_greatest_constraint); 
   let wompWomps = lotteryPairs.splice(0, lotteryPairs.length); //For readability
   //Handle lottery consequences
   let winnaEmails = [];
+  let waitEmails = [];
   let wompEmails = [];
   let winnaProms = winnaWinnas
     .map((w) => {
@@ -392,22 +395,32 @@ async function runLottery(trip) {
       return [user.save(), signup.save()];
     })
     .flat();
+  let waitProms = waitlisters
+    .map((w) => {
+      const signup = trip.TripSignUps[w[1]];
+      signup.status = "Waitlisted";
+      const user = signup.User;
+      //No effect on lottery weights for being waitlisted; can gets kicked down the road
+      waitEmails.push(user.email);
+      return signup.save();
+    });
   let wompProms = wompWomps
     .map((l) => {
       const signup = trip.TripSignUps[l[1]];
       signup.status = "Not Selected";
       const user = signup.User;
-      user.lotteryWeight += REJECTIONBUF;
+      user.lotteryWeight += REJECTIONBUF; //Add lottery compensation for not being selected
       wompEmails.push(user.email);
       return [user.save(), signup.save()];
     })
     .flat();
   trip.status = "Pre-Trip";
   alterPc(trip, "Lottery", "complete", true);
-  await Promise.all(winnaProms.concat(wompProms));
+  await Promise.all(winnaProms.concat(waitProms.concat(wompProms)));
   await trip.save();
   return {
     accepted: winnaEmails,
+    waitlisted: waitEmails, 
     notAccepted: wompEmails,
   };
 }
@@ -415,9 +428,26 @@ async function runLottery(trip) {
 async function runTrip(trip) {
   const todaysDateonly = new Date().toISOString().slice(0, 10);
   if (!(trip.status == "Pre-Trip" && trip.plannedDate <= todaysDateonly)) throw new IllegalOperationError("Trip may not be run before its planned date and must be in Pre-Trip state");
+  //Move all participants still on the waitlist to Not Selected
+  const waitlistedSignups = await trip.getTripSignUps({
+    where: { 
+      status: "Waitlisted",
+      //include: User 
+    }
+  });
+  let proms = waitlistedSignups.map(async (ws) => {
+    ws.status = "Not Selected";
+    if (ws.confirmed) { //DESIGN CHOICE: Only buff the lottery chances of those who confirmed interest
+      const user = await ws.getUser();
+      user.lotteryWeight += REJECTIONBUF;
+      return Promise.all([ws.save(), user.save()]);
+    }
+    return ws.save();
+  });
   //DESIGN CHOICE: Don't jettison off all users who haven't confirmed - leave that to trip leader's discretion
   trip.status = "Post-Trip";
-  return trip.save();
+  proms.push(trip.save());
+  return Promise.all(proms);
 }
 
 async function attendAdditionalParticipants(additionalParticipantEmails, selectedParticipantEmails, trip) {

@@ -188,7 +188,7 @@ TripSignUp.init(
             allowNull: false,
         },
         status: {
-            type: DataTypes.ENUM('Signed Up','Selected','Not Selected','Attended','No Show'),
+            type: DataTypes.ENUM('Signed Up','Selected','Waitlisted','Not Selected','Attended','No Show'),
             defaultValue: 'Signed Up',
         },
         needPaperwork: {

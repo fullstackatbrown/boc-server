@@ -41,7 +41,13 @@ const { User, Trip, TripSignUp, TripClass } = models;
         lastName: 'Dude',
         email: 'test@du.de',
         role: 'Participant',
-    })
+    });
+    let user4 = User.upsert({
+        firstName: 'Test',
+        lastName: 'Dude2',
+        email: 'test2@du.de',
+        role: 'Participant',
+    });
 
     let trip = Trip.upsert({
         id: 1, //Will create endless copies if this is not set to 1
@@ -80,7 +86,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
     let trip4 = Trip.upsert({
         id: 4,
         tripName: 'Trip with Long Description',
-        plannedDate: new Date("2025-07-14T14:48:00"),
+        plannedDate: new Date("2026-07-14T14:48:00"),
         status: 'Open',
         maxSize: 10,
         class: 'Z',
@@ -92,13 +98,47 @@ const { User, Trip, TripSignUp, TripClass } = models;
     let trip5 = Trip.upsert({
         id: 5,
         tripName: 'Some Other Trip',
-        plannedDate: new Date("2025-07-14T14:48:00"),
+        plannedDate: new Date("2026-07-14T14:48:00"),
         status: 'Open',
         maxSize: 10,
         class: 'Z',
         sentenceDesc: `Yeah, this is just some other trip *shrug*.`,
     })
-    await Promise.all([user, user2, user3, trip, trip2, trip3, trip4, trip5]);
+    let trip6 = Trip.upsert({
+        id: 6,
+        tripName: 'Small Trip',
+        plannedDate: new Date("2025-12-25T14:48:00"),
+        status: 'Open',
+        maxSize: 1,
+        class: 'Z',
+        sentenceDesc: `Very small trip.`,
+    })
+    await Promise.all([user, user2, user3, user4, trip, trip2, trip3, trip4, trip5, trip6]);
+
+    let ts1 = TripSignUp.create({
+        userId: 1,
+        tripId: 6,
+        tripRole: "Leader",
+    });
+    let ts2 = TripSignUp.create({
+        userId: 2,
+        tripId: 6,
+        tripRole: "Participant",
+        confirmed: 1,
+    });
+    let ts3 = TripSignUp.create({
+        userId: 3,
+        tripId: 6,
+        tripRole: "Participant",
+        confirmed: 1,
+    });
+    let ts4 = TripSignUp.create({
+        userId: 4,
+        tripId: 6,
+        tripRole: "Participant",
+        confirmed: 1,
+    });
+    await Promise.all([ts1, ts2, ts3, ts4]);
 
     //Close connection so as not to leave hanging connections
     sequelize.close();

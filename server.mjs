@@ -216,8 +216,8 @@ app.use(cookieParser());
 
 //General middleware
 app.use(logRequest);
-app.use(authenticate);
-//app.use(phonyAuth)
+//app.use(authenticate);
+app.use(phonyAuth);
 
 let protectedRoutes = [
   "/profile",
