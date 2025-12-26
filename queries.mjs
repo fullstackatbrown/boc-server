@@ -425,6 +425,51 @@ async function runLottery(trip) {
   };
 }
 
+async function addParticipant(trip) {
+  if (trip.status != "Pre-Trip") throw new IllegalOperationError("May only pull participants from the waitlist when trip is in Pre-Trip phase");
+  const waitlistedSignups = await trip.getTripSignUps({
+    where: { status: "Waitlisted" }
+  })
+  if (waitlistedSignups.length == 0) return { success : 0 }; //Need to return object to indicate whether or not there was a participant to add
+  const confirmedSignups = waitlistedSignups.filter((ws) => ws.confirmed);
+  let selectedSignup;
+  if (confirmedSignups.length != 0) { //If there are any remaining confirmed waitlisters, add them
+    let rand_idx = Math.floor(Math.random() * (confirmedSignups.length - 1));
+    selectedSignup = confirmedSignups[rand_idx];
+  } else { //If not, add any rando on the waitlist
+    let rand_idx = Math.floor(Math.random() * (waitlistedSignups.length - 1));
+    selectedSignup = waitlistedSignups[rand_idx];
+  }
+  selectedSignup.status = "Selected";
+  await selectedSignup.save();
+  return { success : 1 };
+}
+
+const removeJsonFields = ["email"];
+async function removeParticipant(trip, removeJson) {
+  if (!validFields(removeJson, removeJsonFields)) throw new InvalidDataError("Request body must just have the field 'email'");
+  if (trip.status != "Pre-Trip") throw new IllegalOperationError("May only remove participants from a trip when the trip is in Pre-Trip phase");
+  //Find user
+  const user = await User.findOne({
+    where: {
+      email: removeJson.email,
+    }
+  });
+  if (!user) throw new InvalidDataError("Specified email does not belong to an existing account");
+  //Find signup
+  const signup = await TripSignUp.findOne({
+    where: { 
+      userId: user.id,
+      tripId: trip.id,
+      status: "Selected",
+     }
+  });
+  if (!signup) throw new InvalidDataError("Specified email does not belong to an account that is selected for this trip");
+  //Change signup status
+  signup.status = "Not Selected";
+  return signup.save();
+}
+
 async function runTrip(trip) {
   const todaysDateonly = new Date().toISOString().slice(0, 10);
   if (!(trip.status == "Pre-Trip" && trip.plannedDate <= todaysDateonly)) throw new IllegalOperationError("Trip may not be run before its planned date and must be in Pre-Trip state");
@@ -623,6 +668,8 @@ export default {
   tripUpdate,
   openTrip,
   runLottery,
+  addParticipant,
+  removeParticipant,
   runTrip,
   doAttendance,
   tripSignup,

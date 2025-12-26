@@ -41,6 +41,14 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 for the trip. Sends back a list of emails of accepted participants, one 
                                                                                 of waitlisted participants, and a list of emails of rejected participants. 
                                                                                 May only be performed if trip status is currently Open.
+/trip/<tripId>/lead/add-participant     POST    Trip Leader     N/A             Adds a participant from the waitlist to the list of selected participants, 
+                                                                                prioritizing confirmed participants. Will return a JSON object with a single
+                                                                                field "success" which will be set to 0 if there are no participants on the
+                                                                                waitlist left and 1 otherwise. May only be performed if trip status is
+                                                                                currently Pre-Trip.
+/trip/<tripId>/lead/remove-participant  POST    Trip Leader     Remove json     Removes the participant specified by email from the trip (takes their Selected
+                                                                                status and turns it into Not Selected). Can only be performed if the trip status
+                                                                                is currently Pre-Trip and the specified email matches a selected participant.
 /trip/<tripId>/lead/attendance          POST    Trip Leader     Attendance json Updates status of attendant participants and noshows, updating lottery weight
                                                                                 accordingly. Deletes sign up instances of excused absent. Sets status to Post-Trip.
                                                                                 May only be performed if trip status is currently Pre-Trip and current datetime is
@@ -79,6 +87,11 @@ Task Json:
     task: <name_of_task>,
     responsible: <email_of_leader>, //May NOT be null - empty string if no one is responsible yet
     complete: <boolean>,
+}
+
+Remove Json:
+{
+    email: <participant_email>,
 }
 
 Alter Json:
