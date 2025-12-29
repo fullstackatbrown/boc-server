@@ -48,6 +48,7 @@ async function delOldTrips() {
             status: "Complete"
         }
     });
+    logger.log(`[SERVER DAEMON] Destroyed ${oldTrips.length} trip(s)`);
     return Promise.all(oldTrips.map(destroyTrip));
 }
 
