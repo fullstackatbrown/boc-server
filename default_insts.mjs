@@ -53,6 +53,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
         id: 1, //Will create endless copies if this is not set to 1
         tripName: 'Willy\'s Wild Waltz',
         plannedDate: new Date(),
+        category: 'Hiking',
         status: 'Open',
         maxSize: 20,
         class: 'Z',
@@ -62,6 +63,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
         id: 2,
         tripName: 'Alan\'s Awesome Adventure',
         plannedDate: new Date(),
+        category: 'Skiing',
         status: 'Open',
         maxSize: 10,
         class: 'J',
@@ -81,6 +83,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
         status: 'Open',
         maxSize: 20,
         class: 'Z',
+        category: 'Exploring',
         sentenceDesc: 'Come and do some cool stuff with mwah',
     });
     let trip4 = Trip.upsert({
@@ -88,6 +91,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
         tripName: 'Trip with Long Description',
         plannedDate: new Date("2026-07-14T14:48:00"),
         status: 'Open',
+        category: 'Backpacking',
         maxSize: 10,
         class: 'Z',
         sentenceDesc: `Gonna be the best trip of all time! We're gonna do all kinds of cool things,
@@ -100,6 +104,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
         tripName: 'Some Other Trip',
         plannedDate: new Date("2026-07-14T14:48:00"),
         status: 'Open',
+        category: 'Climbing',
         maxSize: 10,
         class: 'Z',
         sentenceDesc: `Yeah, this is just some other trip *shrug*.`,
@@ -107,6 +112,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
     let trip6 = Trip.upsert({
         id: 6,
         tripName: 'Small Trip',
+        category: 'Water',
         plannedDate: new Date("2025-12-25T14:48:00"),
         status: 'Open',
         maxSize: 1,
@@ -143,3 +149,4 @@ const { User, Trip, TripSignUp, TripClass } = models;
     //Close connection so as not to leave hanging connections
     sequelize.close();
 })();
+
