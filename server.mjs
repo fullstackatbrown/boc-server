@@ -25,6 +25,8 @@ const {
   taskUpdate,
   tripUpdate,
   openTrip,
+  addParticipant,
+  removeParticipant,
   runLottery,
   doAttendance,
   tripSignup,
@@ -220,7 +222,7 @@ app.use(cookieParser());
 //General middleware
 app.use(logRequest);
 app.use(authenticate);
-//app.use(phonyAuth)
+//app.use(phonyAuth);
 
 let protectedRoutes = [
   "/profile",
@@ -295,6 +297,18 @@ tripRouter.post(
   "/lead/lottery",
   asyncHandler(async (req, res) => {
     res.status(200).json(await runLottery(req.Trip));
+  }),
+);
+tripRouter.post(
+  "/lead/add-participant",
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await addParticipant(req.Trip));
+  }),
+);
+tripRouter.post(
+  "/lead/remove-participant",
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await removeParticipant(req.Trip, req.body));
   }),
 );
 tripRouter.post(

@@ -6,10 +6,10 @@ import { Op } from "sequelize";
 const { Trip } = models;
 
 async function destroyTrip(trip) {
-    const signups = trip.getTripSignups();
+    const signups = await trip.getTripSignUps();
     let proms = signups.map((signup) => signup.destroy());
     proms.push(trip.destroy());
-    return Promise.all(proms)
+    return Promise.all(proms);
 }
 
 async function runTrips() {
@@ -35,6 +35,7 @@ async function runTrips() {
             }
         }
     });
+    if (tripsToRun.length > 0) logger.log(`[SERVER DAEMON] Ran ${tripsToRun.length} trip(s)!`);
     const tripUpdateProms = tripsToRun.map(runTrip);
     proms.concat(tripUpdateProms);
     return Promise.all(proms);
@@ -47,6 +48,7 @@ async function delOldTrips() {
             status: "Complete"
         }
     });
+    logger.log(`[SERVER DAEMON] Destroyed ${oldTrips.length} trip(s)`);
     return Promise.all(oldTrips.map(destroyTrip));
 }
 
