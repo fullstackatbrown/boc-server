@@ -466,7 +466,7 @@ process.on("uncaughtException", (reason, exception_origin) => {
 jobs.forEach((job) => cron.schedule(job.cronString, job.job));
 
 //Set port, listen for requests
-const PORT = process.env.PORT || 1234; // should be proxied behind nginx
+const PORT = process.env.PORT || 8080; // should be proxied behind nginx
 
 app.listen(PORT, async () => {
   logger.log(`STARTUP: Running on port ${PORT}.`);
