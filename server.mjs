@@ -7,7 +7,7 @@ const {
   AuthError,
   NonexistenceError,
   InvalidDataError,
-  IllegalOperationError,
+  IllegalOperationError
 } = errors;
 import { Sequelize } from "sequelize";
 import queries from "./queries.mjs";
@@ -34,13 +34,13 @@ const {
   confirmSignup,
   cancelSignup,
   reportPaid,
-  listervAdd,
+  listervAdd
 } = queries;
 import cron from "node-cron";
 import jobs from "./server_jobs.mjs";
 
-import https from 'https';
-import fs from 'fs';
+import https from "https";
+import fs from "fs";
 
 import axios from "axios";
 
@@ -51,7 +51,7 @@ import axios from "axios";
 //Logs method and origin of incoming requests
 async function logRequest(req, _res, next) {
   logger.log(
-    `${req.method} request for ${req.path} received from ${req.connection.remoteAddress}:${req.connection.remotePort}`,
+    `${req.method} request for ${req.path} received from ${req.connection.remoteAddress}:${req.connection.remotePort}`
   );
   next();
 }
@@ -67,23 +67,23 @@ async function authenticate(req, res, next) {
       "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
       {
         headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
+          Authorization: `Bearer ${token}`
+        }
+      }
     );
 
     // If the token is valid but the user hasn't been seen, user will be Null
     let user = await User.findOne({
       where: {
-        email: response.data.email,
-      },
+        email: response.data.email
+      }
     });
 
     if (user == null) {
       user = await createUser(
         response.data.given_name,
         response.data.family_name ? response.data.family_name : "",
-        response.data.email,
+        response.data.email
       );
     }
 
@@ -133,8 +133,8 @@ async function grabSignup(req, _res, next) {
   const signup = await TripSignUp.findOne({
     where: {
       userId: req.userId,
-      tripId: req.tripId,
-    },
+      tripId: req.tripId
+    }
   });
   if (!signup)
     throw new NonexistenceError("User not signed up for specified trip");
@@ -163,8 +163,8 @@ async function isTripLeader(userId, tripId) {
   const signup = await TripSignUp.findOne({
     where: {
       userId: userId,
-      tripId: tripId,
-    },
+      tripId: tripId
+    }
   });
   return signup && signup.tripRole == "Leader";
 }
@@ -212,7 +212,7 @@ const app = express();
 const ACCEPTED_ORIGIN = process.env.ACCEPTED_ORIGIN; //IP of static files server for production
 const corsOptions = {
   origin: [`${ACCEPTED_ORIGIN}`, "http://localhost:3000"],
-  credentials: true,
+  credentials: true
 };
 app.use(cors(corsOptions)); //CORS options specifications
 app.use(invalidRecast(json())); //Parse requests of content-type application/json so req.body is a JS object parsed from the original JSON
@@ -229,7 +229,7 @@ let protectedRoutes = [
   "/add-phone",
   "/create-trip",
   "/signup",
-  "trip/:tripId/*",
+  "trip/:tripId/*"
 ]; //Does not include trip/:tripId itself
 app.use(protectedRoutes, loggedIn);
 
@@ -245,99 +245,99 @@ tripRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     res.status(200).json(await getTripData(req.tripId, req.userId));
-  }),
+  })
 );
 tripRouter.get(
   "/is-signed-up",
   asyncHandler(async (req, res) => {
     res.status(200).json(await isSignedUp(req.userId, req.tripId));
-  }),
+  })
 );
 tripRouter.post(
   "/signup",
   asyncHandler(async (req, res) => {
     await tripSignup(req.userId, req.tripId);
     res.sendStatus(200);
-  }),
+  })
 );
 tripRouter.get(
   "/lead/participants",
   asyncHandler(async (req, res) => {
     res.status(200).json(await getTripParticipants(req.Trip));
-  }),
+  })
 );
 tripRouter.get(
   "/lead/all-possible-participants",
   asyncHandler(async (req, res) => {
     res.status(200).json(await getPossibleParticipantEmails(req.Trip));
   })
-)
+);
 tripRouter.post(
   "/lead/task",
   asyncHandler(async (req, res) => {
     await taskUpdate(req.Trip, req.body);
     res.sendStatus(200);
-  }),
+  })
 );
 tripRouter.post(
   "/lead/alter",
   asyncHandler(async (req, res) => {
     await tripUpdate(req.Trip, req.body);
     res.sendStatus(200);
-  }),
+  })
 );
 tripRouter.post(
   "/lead/open",
   asyncHandler(async (req, res) => {
     await openTrip(req.Trip);
     res.sendStatus(200);
-  }),
+  })
 );
 tripRouter.post(
   "/lead/lottery",
   asyncHandler(async (req, res) => {
     res.status(200).json(await runLottery(req.Trip));
-  }),
+  })
 );
 tripRouter.post(
   "/lead/add-participant",
   asyncHandler(async (req, res) => {
     res.status(200).json(await addParticipant(req.Trip));
-  }),
+  })
 );
 tripRouter.post(
   "/lead/remove-participant",
   asyncHandler(async (req, res) => {
     res.status(200).json(await removeParticipant(req.Trip, req.body));
-  }),
+  })
 );
 tripRouter.post(
   "/lead/attendance",
   asyncHandler(async (req, res) => {
     await doAttendance(req.Trip, req.body);
     res.sendStatus(200);
-  }),
+  })
 );
 tripRouter.post(
   "/participate/confirm",
   asyncHandler(async (req, res) => {
     await confirmSignup(req.Signup);
     res.sendStatus(200);
-  }),
+  })
 );
 tripRouter.post(
   "/participate/cancel",
   asyncHandler(async (req, res) => {
     await cancelSignup(req.Signup);
     res.sendStatus(200);
-  }),
+  })
 );
 tripRouter.post(
   "/participate/pay",
   asyncHandler(async (req, res) => {
     await reportPaid(req.Signup);
     res.sendStatus(200);
-  }),
+  })
 );
 
 app.use("/trip/:tripId", tripRouter);
@@ -351,13 +351,13 @@ userRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     res.status(200).json(await getBasicUserData(req.User));
-  }),
+  })
 );
 userRouter.get(
   "/profile",
   asyncHandler(async (req, res) => {
     res.status(200).json(await getUserData(req.User));
-  }),
+  })
 );
 userRouter.post(
   "/add-phone",
@@ -366,14 +366,14 @@ userRouter.post(
       throw new InvalidDataError("Request body lacking phoneNum field");
     await addPhone(req.User, req.body.phoneNum);
     res.sendStatus(200);
-  }),
+  })
 );
 userRouter.post(
   "/listserv-add",
   asyncHandler(async (req, res) => {
     await listervAdd(req.User);
     res.sendStatus(200);
-  }),
+  })
 );
 
 app.use("/user", userRouter);
@@ -388,7 +388,7 @@ leaderRouter.post(
   "/create-trip",
   asyncHandler(async (req, res) => {
     res.status(200).json(await createTrip(req.User, req.body));
-  }),
+  })
 );
 
 app.use("/leader", leaderRouter);
@@ -398,22 +398,22 @@ app.get(
   "/trips",
   asyncHandler(async (_req, res) => {
     res.status(200).json(await getTrips());
-  }),
+  })
 );
 app.get(
   "/leaders",
   asyncHandler(async (_req, res) => {
     res.status(200).json(await getLeaders());
-  }),
+  })
 );
 
 //Default route handler
 app.use(
   asyncHandler(async (_req, res) => {
     throw new NonexistenceError(
-      "Welcome to the BOC's data server! You are receiving this message because the route you requested did not match any of our defined ones.",
+      "Welcome to the BOC's data server! You are receiving this message because the route you requested did not match any of our defined ones."
     );
-  }),
+  })
 );
 
 //Error handlers
@@ -422,7 +422,7 @@ app.use(async (err, _req, res, _next) => {
     logger.log(err.message);
     res.status(422).json({
       errMessage:
-        "SQL operation failure. Possible sources: broken unique constraint, data too long, or data of wrong type",
+        "SQL operation failure. Possible sources: broken unique constraint, data too long, or data of wrong type"
     });
   } else if (err instanceof AuthError) {
     res.status(401).json({ errMesssage: `${err}` });
@@ -466,20 +466,8 @@ process.on("uncaughtException", (reason, exception_origin) => {
 jobs.forEach((job) => cron.schedule(job.cronString, job.job));
 
 //Set port, listen for requests
-const DEVELOPING = !!Number(process.env.DEVELOPING) || false;
-const PORT = process.env.PORT || (DEVELOPING ? 8080 : 443);
+const PORT = process.env.PORT || 1234; // should be proxied behind nginx
 
-if (DEVELOPING) { //Just basic http listen
-  app.listen(PORT, async () => {
-    logger.log(`STARTUP: Running on port ${PORT}.`);
-  });
-} else { //Fancy deployment https listening with certs
-  const options = {
-    key: fs.readFileSync("/etc/letsencrypt/live/backend.brownoutingclub.com/privkey.pem"),
-    cert: fs.readFileSync("/etc/letsencrypt/live/backend.brownoutingclub.com/fullchain.pem")
-  }
-
-  https.createServer(options, app).listen(PORT, async () => {
-    logger.log(`STARTUP: Running on port ${PORT}.`);
-  });
-}
+app.listen(PORT, async () => {
+  logger.log(`STARTUP: Running on port ${PORT}.`);
+});
