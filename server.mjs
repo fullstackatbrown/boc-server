@@ -59,6 +59,8 @@ async function authenticate(req, res, next) {
   try {
     // Use the token to fetch data from an external API
     const token = req.headers.authorization?.split(" ")[1];
+
+    // If the token is not a valid google token, this axios request will fail
     const response = await axios.get(
       "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
       {
@@ -68,6 +70,7 @@ async function authenticate(req, res, next) {
       },
     );
 
+    // If the token is valid but the user hasn't been seen, user will be Null
     let user = await User.findOne({
       where: {
         email: response.data.email,
@@ -431,14 +434,14 @@ app.use(async (err, _req, res, _next) => {
 /*
 process.on("unhandledRejection", (reason, promise) => {
   let trace = '';
-  if (reason instanceof Error) { trace = reason.stack } 
+  if (reason instanceof Error) { trace = reason.stack }
   let err_msg = `FAILED PROMISE: ${promise} occurred because ${reason}\n${trace}`;
   console.error(err_msg);
   logger.log(err_msg);
 });
 process.on("uncaughtException", (reason, exception_origin) => {
   let trace = '';
-  if (reason instanceof Error) { trace = reason.stack } 
+  if (reason instanceof Error) { trace = reason.stack }
   let err_msg = `EXCEPTION THROWN: ${exception_origin} occurred because ${reason}\n${trace}`;
   console.error(err_msg);
   logger.log(err_msg);
@@ -461,7 +464,7 @@ if (DEVELOPING) { //Just basic http listen
     key: fs.readFileSync("/etc/letsencrypt/live/backend.brownoutingclub.com/privkey.pem"),
     cert: fs.readFileSync("/etc/letsencrypt/live/backend.brownoutingclub.com/fullchain.pem")
   }
-  
+
   https.createServer(options, app).listen(PORT, async () => {
     logger.log(`STARTUP: Running on port ${PORT}.`);
   });
