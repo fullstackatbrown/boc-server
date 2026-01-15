@@ -83,7 +83,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
         status: 'Open',
         maxSize: 20,
         class: 'Z',
-        category: 'Exploring',
+        category: 'Exploration',
         sentenceDesc: 'Come and do some cool stuff with mwah',
     });
     let trip4 = Trip.upsert({

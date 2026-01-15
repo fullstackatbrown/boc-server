@@ -62,7 +62,7 @@ async function authenticate(req, res, next) {
     // Use the token to fetch data from an external API
     const token = req.headers.authorization?.split(" ")[1];
 
-    // If the token is not a valid google token, this axios request will fail
+    // If the token is not a valid google token (or was not supplied), this axios request will fail
     const response = await axios.get(
       "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
       {
@@ -80,11 +80,15 @@ async function authenticate(req, res, next) {
     });
 
     if (user == null) {
-      user = await createUser(
-        response.data.given_name,
-        response.data.family_name ? response.data.family_name : "",
-        response.data.email
-      );
+      if (response.data.email.endsWith("@brown.edu") || response.data.email.endsWith("@risd.edu")) {
+        user = await createUser(
+          response.data.given_name,
+          response.data.family_name ? response.data.family_name : "",
+          response.data.email
+        );
+      } else {
+        throw Error("User does not have a Brown or RISD email address.");
+      }
     }
 
     //If no error occurs, we attach the user's id and continue
@@ -92,7 +96,12 @@ async function authenticate(req, res, next) {
     next();
   } catch (error) {
     // Continue as if the user is not authenticated
-    logger.log("Authentication for user failed: " + error);
+    // Reasons we might have gotten here: 
+    // - User did not send a token (ie. was looking for content on an unprotected route (standard practice!) OR sent a malformed request to a protected route)
+    // - User sent an invalid token (shouldn't happen under usual circumstances)
+    // - User sent a valid token that was associated with a non Brown or RISD account (frontend shouldn't let people complete login without a Brown or RISD account, so this shouldn't happen)
+
+    //logger.log("Authentication for user failed: " + error);
     next();
   }
 }
