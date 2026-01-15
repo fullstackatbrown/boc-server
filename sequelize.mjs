@@ -1,8 +1,9 @@
 import { Sequelize } from 'sequelize';
 import logger from './logger.mjs';
+import "dotenv/config";
 
 //Set up sequelize pool - sets up connection to database
-const sequelize = new Sequelize('boc', 'service', 'test123', {
+const sequelize = new Sequelize('boc', 'service', process.env.MARIADB_SERVICE_PASSWORD, {
     host: '127.0.0.1',
     dialect: 'mariadb',
     logging: false, //Suppress annoying console output
