@@ -152,9 +152,11 @@ async function addPhone(user, phoneNum) {
 
 const LISTSERV_FILE = "./listserv-additions.txt"
 async function listervAdd(user) {
-  fs.appendFile(LISTSERV_FILE, user.email + "\n");
-  user.joinedListserv = true;
-  return user.save();
+  if (!user.joinedListserv) {
+    fs.appendFile(LISTSERV_FILE, user.email + "\n");
+    user.joinedListserv = true;
+    return user.save();
+  }
 }
 
 //TODO: return leaders on trip as well
