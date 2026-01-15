@@ -603,6 +603,18 @@ async function doAttendance(trip, attendanceJson) {
 }
 
 async function tripSignup(userId, tripId) {
+  //Check to see if there was already a signup
+  const prevSignup = await TripSignUp.findOne({
+    where: {
+      userId: userId,
+      tripId: tripId
+    }
+  });
+  if (prevSignup) {
+    logger.log("Attempted resignup for a user already signed up for a trip");
+    return prevSignup;
+  }
+  //Make the signup if not
   const signup = TripSignUp.create({
     userId: userId,
     tripId: tripId,
