@@ -295,7 +295,7 @@ async function tripUpdate(trip, alterJson) {
     throw new InvalidDataError("Can't change trip pricing once out of Staging");
   if (
     ["Pre-Trip", "Post-Trip", "Complete"].includes(trip.status) &&
-    !(alterJson.keys().length == 1 && alterJson.plannedDate)
+    !(Object.keys(alterJson).length == 1 && alterJson.plannedDate)
   ) {
     throw new InvalidDataError(
       "Cannot change any trip properties besides plannedDate after reaching Pre-Trip status",
