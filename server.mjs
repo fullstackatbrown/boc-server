@@ -478,5 +478,6 @@ jobs.forEach((job) => cron.schedule(job.cronString, job.job));
 const PORT = process.env.PORT || 8080; // should be proxied behind nginx
 
 app.listen(PORT, async () => {
+  await logger.start();
   logger.log(`STARTUP: Running on port ${PORT}.`);
 });

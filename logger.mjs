@@ -20,6 +20,6 @@ const logger = {
   }
 }
 //Start/restart logger when first required
-await logger.start();
+//await logger.start(); - logger.start() should be called mannually now by the file that needs to start it (only server.mjs!)
 //Export logger
 export default logger;
