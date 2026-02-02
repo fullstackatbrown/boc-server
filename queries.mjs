@@ -544,10 +544,11 @@ async function doAttendance(trip, attendanceJson) {
   //
   //HANDLE SELECTED PARTICIPANTS
   //
-  if (!(trip.status == "Post-Trip" && trip.plannedDate <= new Date().toLocaleString("en-US", { timeZone: "America/New_York" })))
+  if (!(trip.status == "Post-Trip" && new Date(trip.plannedDate) <= new Date(new Date().toLocaleString("sv-SE", { timeZone: "America/New_York" })))) { //Heinous timezone nonsense - might need more testing
     throw new IllegalOperationError(
       "Attendance may only be taken after lottery has been ran and on/after trip's planned date",
     );
+  }
   //Sanitize selectedParticipants and fetch data
   if (!Object.values(selectedParticipants).every((val) => attendanceStates.includes(val)))
     throw new InvalidDataError(
