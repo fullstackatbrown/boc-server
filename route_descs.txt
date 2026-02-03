@@ -41,6 +41,7 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 for the trip. Sends back a list of emails of accepted participants, one 
                                                                                 of waitlisted participants, and a list of emails of rejected participants. 
                                                                                 May only be performed if trip status is currently Open.
+/trip/<tripId>/lead/participants        GET     Trip Leader     N/A             Returns a list of all participants on a trip, regardless of their current status.
 /trip/<tripId>/lead/add-participant     POST    Trip Leader     N/A             Adds a participant from the waitlist to the list of selected participants, 
                                                                                 prioritizing confirmed participants. Will return a JSON object with a single
                                                                                 field "success" which will be set to 0 if there are no participants on the
