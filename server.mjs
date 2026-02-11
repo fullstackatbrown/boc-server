@@ -86,6 +86,7 @@ async function authenticate(req, res, next) {
           response.data.family_name ? response.data.family_name : "",
           response.data.email
         );
+        logger.log(`Created new user with email ${response.data.email}`);
       } else {
         throw Error("User does not have a Brown or RISD email address.");
       }

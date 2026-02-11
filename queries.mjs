@@ -379,7 +379,8 @@ async function runLottery(trip) {
   lotteryPairs.sort((pair1, pair2) => pair2[0] - pair1[0]);
   let greatest_constraint = Math.min(trip.maxSize, lotteryPairs.length);
   let winnaWinnas = lotteryPairs.splice(0, greatest_constraint); //Leftovers are losers
-  let new_greatest_constraint = Math.min(trip.maxSize, lotteryPairs.length); //DESIGN CHOICE: allow up to trip.maxSize participants on waitlist
+  // NOTE: currently, we are putting ALL non-selected participants on the waitlist
+  let new_greatest_constraint = lotteryPairs.length; //Math.min(trip.maxSize, lotteryPairs.length);
   let waitlisters = lotteryPairs.splice(0, new_greatest_constraint); 
   let wompWomps = lotteryPairs.splice(0, lotteryPairs.length); //For readability
   //Handle lottery consequences
