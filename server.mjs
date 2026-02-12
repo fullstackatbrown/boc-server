@@ -417,6 +417,49 @@ app.get(
   })
 );
 
+app.get(
+  "/public/leader-stats/:firstName/:lastName",
+  asyncHandler(async (req, res) => {
+    const { firstName, lastName } = req.params;
+    const count = await TripSignUp.count({
+      where: { tripRole: "Leader" },
+      include: [{
+        model: User,
+        where: { firstName, lastName }
+      }]
+    });
+    res.status(200).json({ totalTrips: count });
+  })
+);
+
+app.get(
+  "/public/leader-trips/:firstName/:lastName",
+  asyncHandler(async (req, res) => {
+    const { firstName, lastName } = req.params;
+
+    const trips = await TripSignUp.findAll({
+      where: { tripRole: "Leader" },
+      include: [{
+        model: User,
+        where: { firstName, lastName }
+      }, {
+        model: Trip // Ensure the Trip model is associated in your models.mjs
+      }]
+    });
+
+    // Format the data to match your frontend Trip interface
+    const formattedTrips = trips.map(signup => ({
+      tripId: signup.Trip.id,
+      tripName: signup.Trip.tripName,
+      date: signup.Trip.plannedDate,
+      sentenceDesc: signup.Trip.sentenceDesc,
+      lotteryInfo: "Hosted Trip"
+    }));
+
+    res.status(200).json(formattedTrips);
+  })
+);
+
 //Default route handler
 app.use(
   asyncHandler(async (_req, res) => {
