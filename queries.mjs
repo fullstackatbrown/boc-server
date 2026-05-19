@@ -39,11 +39,28 @@ function alterPc(trip, task, field, value) {
 // RETRIEVAL HELPERS
 
 function getTrips() {
-  const pubTrips = Trip.findAll({
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-indexed
+
+  let semesterStart, semesterEnd;
+  if (month >= 1 && month <= 5) {
+    semesterStart = `${year}-01-01`;
+    semesterEnd = `${year}-05-31`;
+  } else if (month >= 9 && month <= 12) {
+    semesterStart = `${year}-09-01`;
+    semesterEnd = `${year}-12-31`;
+  } else {
+    return Promise.resolve([]);
+  }
+
+  return Trip.findAll({
     attributes: { exclude: ["planningChecklist"] },
-    where: { status: { [Op.ne]: "Staging" } },
+    where: {
+      status: { [Op.ne]: "Staging" },
+      plannedDate: { [Op.between]: [semesterStart, semesterEnd] },
+    },
   });
-  return pubTrips;
 }
 
 function getLeaders() {
