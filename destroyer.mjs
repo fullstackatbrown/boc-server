@@ -20,12 +20,12 @@ const { Trip, User } = models;
 export async function destroyTrip(id) {
   const t = await sequelize.transaction();
   try {
-    //Grab user
+    //Grab trip
     const trip = await Trip.findOne({ where: { id }, transaction: t });
-    if (!trip) throw Error("No user with that ID found");
+    if (!trip) throw Error("No trip with that ID found");
     //Grab signups
     const signups = await trip.getTripSignUps({ transaction: t });
-    //Delete signups and user sequentially - this avoids odd deadlocks
+    //Delete signups and trip sequentially - this avoids odd deadlocks
     for (const signup of signups) {
       await signup.destroy({ transaction: t });
     }
