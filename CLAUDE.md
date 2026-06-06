@@ -16,7 +16,7 @@ Annotated Abbreviated File Tree:
 | - models.mjs - Defines the four database tables (User, Trip, TripSignUp, TripClass) and their layout for Sequelize
 | - queries.mjs - Holds methods that request handlers in server.mjs call upon to resolve database interaction behavior
 | - default_insts.mjs - Recreates the local database with a standard set of test instances; run manually with `node default_insts.mjs` to reset the local database to a known state for testing
-| - verify.py - (not yet implemented) Will hold web server route verification methods
+| - verify.py - Holds web server route verification methods
 | - .env - private credentials for MariaDB access plus server config (PORT, ACCEPTED_ORIGIN, MARIADB_SERVICE_PASSWORD)
 | OTHER CODE FILES:
 | - logger.mjs - Creates logger for live logging of server behavior
@@ -50,7 +50,10 @@ Edits to the structure of the database should adhere to the following loop:
 7. Update default_insts.mjs, if needed, to reflect the structure of the new database, keeping values in these default instances diverse for robust testing
 8. Recreate the database (`node default_insts.mjs`) and run all tests in verify.py again, ensuring correctness with respect to these new default instances
 
-Any new features to be added with the modified database structure should only be implemented AFTER the above database change loop has been executed. 
+Any new features to be added with the modified database structure should only be implemented AFTER the above database change loop has been executed.
+
+### Running verify.py
+Note the prerequisites described at the top of verify.py - these prequesites must be attained before running the script. If authentication must be changed in phonyAuth in order to run verify.py, be sure to change it back to standard authentication afterwards. 
 
 ## Claude Best Practice Reminders
 - For local testing without a real Google login, swap `app.use(authenticate)` for `app.use(phonyAuth)` in server.mjs. The `phonyAuth` middleware sets req.userId to the `TESTID` constant defined near the top of the file; change TESTID to test as different users.

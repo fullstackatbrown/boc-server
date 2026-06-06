@@ -139,7 +139,7 @@ async function getTripData(tripId, userId) {
       //Include all signed up participants' trip data
       const participants = await trip.getTripSignUps({
         where: {
-          status: { [Op.regexp]: "^(Selected|Participated|No Show)$" },
+          status: { [Op.regexp]: "^(Selected|Attended|No Show)$" },
         },
       });
       trip.setDataValue("participants", participants);
@@ -622,6 +622,9 @@ async function doAttendance(trip, attendanceJson) {
 }
 
 async function tripSignup(userId, tripId) {
+  const trip = await Trip.findByPk(tripId);
+  if (!trip) throw new NonexistenceError("Trip at specified tripId doesn't exist");
+  if (trip.status !== "Open") throw new IllegalOperationError("Can only sign up for trips that are currently Open");
   //Check to see if there was already a signup
   const prevSignup = await TripSignUp.findOne({
     where: {

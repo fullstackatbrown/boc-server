@@ -417,8 +417,11 @@ app.get(
   })
 );
 
-app.get(
-  "/public/leader-stats/:firstName/:lastName",
+//Public (unauthenticated) leader profile routes
+const publicRouter = express.Router();
+
+publicRouter.get(
+  "/leader-stats/:firstName/:lastName",
   asyncHandler(async (req, res) => {
     const { firstName, lastName } = req.params;
     const count = await TripSignUp.count({
@@ -432,22 +435,19 @@ app.get(
   })
 );
 
-app.get(
-  "/public/leader-trips/:firstName/:lastName",
+publicRouter.get(
+  "/leader-trips/:firstName/:lastName",
   asyncHandler(async (req, res) => {
     const { firstName, lastName } = req.params;
-
     const trips = await TripSignUp.findAll({
       where: { tripRole: "Leader" },
       include: [{
         model: User,
         where: { firstName, lastName }
       }, {
-        model: Trip // Ensure the Trip model is associated in your models.mjs
+        model: Trip
       }]
     });
-
-    // Format the data to match your frontend Trip interface
     const formattedTrips = trips.map(signup => ({
       tripId: signup.Trip.id,
       tripName: signup.Trip.tripName,
@@ -455,10 +455,11 @@ app.get(
       sentenceDesc: signup.Trip.sentenceDesc,
       lotteryInfo: "Hosted Trip"
     }));
-
     res.status(200).json(formattedTrips);
   })
 );
+
+app.use("/public", publicRouter);
 
 //Default route handler
 app.use(

@@ -119,7 +119,39 @@ const { User, Trip, TripSignUp, TripClass } = models;
         class: 'Z',
         sentenceDesc: `Very small trip.`,
     })
-    await Promise.all([user, user2, user3, user4, trip, trip2, trip3, trip4, trip5, trip6]);
+    // trip7: Staging, no blurb/sentenceDesc — for /lead/task, /lead/alter, /lead/open tests
+    let trip7 = Trip.upsert({
+        id: 7,
+        tripName: 'Staging Test Trip',
+        plannedDate: new Date("2026-10-15"),
+        category: 'Hiking',
+        status: 'Staging',
+        maxSize: 10,
+        class: 'Z',
+    })
+    // trip8: Pre-Trip — for /lead/participants, /lead/add-participant, /lead/remove-participant tests
+    let trip8 = Trip.upsert({
+        id: 8,
+        tripName: 'Pre-Trip Test Trip',
+        plannedDate: new Date("2026-10-20"),
+        category: 'Camping',
+        status: 'Pre-Trip',
+        maxSize: 2,
+        class: 'Z',
+        sentenceDesc: 'A test trip for integration testing',
+    })
+    // trip9: Post-Trip, past date — for /lead/attendance test
+    let trip9 = Trip.upsert({
+        id: 9,
+        tripName: 'Post-Trip Test Trip',
+        plannedDate: new Date("2026-05-01"),
+        category: 'Backpacking',
+        status: 'Post-Trip',
+        maxSize: 5,
+        class: 'Z',
+        sentenceDesc: 'A past trip for integration testing',
+    })
+    await Promise.all([user, user2, user3, user4, trip, trip2, trip3, trip4, trip5, trip6, trip7, trip8, trip9]);
 
     let ts1 = TripSignUp.create({
         userId: 1,
@@ -145,6 +177,16 @@ const { User, Trip, TripSignUp, TripClass } = models;
         confirmed: 1,
     });
     await Promise.all([ts1, ts2, ts3, ts4]);
+
+    // Additional signups for trips 7-9 and User 1 as participant on trip 3
+    let ts5  = TripSignUp.create({ userId: 1, tripId: 7, tripRole: "Leader" });
+    let ts6  = TripSignUp.create({ userId: 1, tripId: 8, tripRole: "Leader" });
+    let ts7  = TripSignUp.create({ userId: 2, tripId: 8, tripRole: "Participant", status: "Selected",   confirmed: 1 });
+    let ts8  = TripSignUp.create({ userId: 3, tripId: 8, tripRole: "Participant", status: "Waitlisted", confirmed: 1 });
+    let ts9  = TripSignUp.create({ userId: 1, tripId: 9, tripRole: "Leader" });
+    let ts10 = TripSignUp.create({ userId: 2, tripId: 9, tripRole: "Participant", status: "Selected",   confirmed: 1, paid: 1 });
+    let ts11 = TripSignUp.create({ userId: 1, tripId: 3, tripRole: "Participant", status: "Signed Up" });
+    await Promise.all([ts5, ts6, ts7, ts8, ts9, ts10, ts11]);
 
     //Close connection so as not to leave hanging connections
     sequelize.close();
