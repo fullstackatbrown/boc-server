@@ -452,14 +452,11 @@ async function addParticipant(trip) {
   })
   if (waitlistedSignups.length == 0) return { success : 0 }; //Need to return object to indicate whether or not there was a participant to add
   const confirmedSignups = waitlistedSignups.filter((ws) => ws.confirmed);
-  let selectedSignup;
-  if (confirmedSignups.length != 0) { //If there are any remaining confirmed waitlisters, add them
-    let rand_idx = Math.floor(Math.random() * (confirmedSignups.length - 1));
-    selectedSignup = confirmedSignups[rand_idx];
-  } else { //If not, add any rando on the waitlist
-    let rand_idx = Math.floor(Math.random() * (waitlistedSignups.length - 1));
-    selectedSignup = waitlistedSignups[rand_idx];
-  }
+  //Pool to draw from: confirmed waitlisters get priority, otherwise anyone waitlisted
+  const pool = confirmedSignups.length != 0 ? confirmedSignups : waitlistedSignups;
+  //NOTE: Math.random() * pool.length, NOT (pool.length - 1) - the latter can never
+  //return the last element of the pool
+  const selectedSignup = pool[Math.floor(Math.random() * pool.length)];
   selectedSignup.status = "Selected";
   await selectedSignup.save();
   return { success : 1 };

@@ -187,12 +187,22 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("planningChecklist", r.json())
 
     def test_16_trip_get_staging_as_leader_succeeds(self):
-        """User 1 is leader on trip 7 (Staging); leader view must work.
-        Note: a non-member accessing a Staging trip receives 401 — that path
-        requires a different TESTID to test with phonyAuth."""
+        """User 1 is leader on trip 7 (Staging); leader view must work."""
         r = get("/trip/7")
         self.assertEqual(r.status_code, 200)
         self.assertIn("planningChecklist", r.json())
+
+    def test_16b_trip_get_staging_as_non_member_returns_401(self):
+        """A Staging trip is private. Previously untestable: it needs a second
+        identity, which phonyAuth could not provide without a restart."""
+        with as_user("ada.lovelace@brown.edu"):
+            r = get("/trip/7")
+        self.assertEqual(r.status_code, 401)
+
+    def test_16c_trip_get_staging_logged_out_returns_401(self):
+        with as_user(None):
+            r = get("/trip/7")
+        self.assertEqual(r.status_code, 401)
 
     def test_17_trip_get_nonexistent_returns_404(self):
         r = get("/trip/99999")
@@ -469,13 +479,13 @@ class ServerTests(unittest.TestCase):
 
     def test_45_unseen_brown_email_is_auto_created(self):
         """Mirrors the real Google path: first request from a Brown address makes a user."""
-        with as_user("ada.lovelace@brown.edu"):
+        with as_user("auto.created@brown.edu"):
             r = get("/user/")
         self.assertEqual(r.status_code, 200)
         data = r.json()
-        self.assertEqual(data["email"], "ada.lovelace@brown.edu")
-        self.assertEqual(data["firstName"], "ada")
-        self.assertEqual(data["lastName"], "lovelace")
+        self.assertEqual(data["email"], "auto.created@brown.edu")
+        self.assertEqual(data["firstName"], "auto")
+        self.assertEqual(data["lastName"], "created")
         self.assertEqual(data["role"], "Participant")
 
     def test_46_non_brown_email_is_rejected(self):

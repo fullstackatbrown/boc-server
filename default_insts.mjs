@@ -49,6 +49,63 @@ const { User, Trip, TripSignUp, TripClass } = models;
         role: 'Participant',
     });
 
+    //Cast for lifecycle testing (Playwright's e2e walk, and manual multi-user testing).
+    //A trip needs a leader plus a good handful of participants to exercise the lottery,
+    //waitlist, removal and attendance paths, so there are deliberately more here than any
+    //single test uses. Names are real so participant lists render legibly.
+    let user5 = User.upsert({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: 'ada.lovelace@brown.edu',
+        role: 'Participant',
+    });
+    let user6 = User.upsert({
+        firstName: 'Grace',
+        lastName: 'Hopper',
+        email: 'grace.hopper@brown.edu',
+        role: 'Participant',
+    });
+    let user7 = User.upsert({
+        firstName: 'Alan',
+        lastName: 'Turing',
+        email: 'alan.turing@brown.edu',
+        role: 'Participant',
+    });
+    let user8 = User.upsert({
+        firstName: 'Katherine',
+        lastName: 'Johnson',
+        email: 'katherine.johnson@brown.edu',
+        role: 'Participant',
+    });
+    let user9 = User.upsert({
+        firstName: 'Barbara',
+        lastName: 'Liskov',
+        email: 'barbara.liskov@brown.edu',
+        role: 'Participant',
+    });
+    let user10 = User.upsert({
+        firstName: 'Donald',
+        lastName: 'Knuth',
+        email: 'donald.knuth@brown.edu',
+        role: 'Participant',
+    });
+    //RISD account, and the one deliberately left off every trip - used to test taking
+    //attendance for somebody who never signed up in the first place
+    let user11 = User.upsert({
+        firstName: 'Margaret',
+        lastName: 'Hamilton',
+        email: 'margaret.hamilton@risd.edu',
+        role: 'Participant',
+    });
+    //A plain Leader (not an Admin) - every other leader in this seed is an Admin, which
+    //means leader-vs-admin behaviour would otherwise never get exercised
+    let user12 = User.upsert({
+        firstName: 'Radia',
+        lastName: 'Perlman',
+        email: 'radia.perlman@brown.edu',
+        role: 'Leader',
+    });
+
     let trip = Trip.upsert({
         id: 1, //Will create endless copies if this is not set to 1
         tripName: 'Willy\'s Wild Waltz',
@@ -151,7 +208,8 @@ const { User, Trip, TripSignUp, TripClass } = models;
         class: 'Z',
         sentenceDesc: 'A past trip for integration testing',
     })
-    await Promise.all([user, user2, user3, user4, trip, trip2, trip3, trip4, trip5, trip6, trip7, trip8, trip9]);
+    await Promise.all([user, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12,
+        trip, trip2, trip3, trip4, trip5, trip6, trip7, trip8, trip9]);
 
     let ts1 = TripSignUp.create({
         userId: 1,
