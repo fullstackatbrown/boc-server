@@ -2,14 +2,20 @@
 Integration tests for the BOC web server.
 
 PREREQUISITES:
-  1. phonyAuth must be enabled in server.mjs:
-       swap  app.use(authenticate)
-       for   app.use(phonyAuth)
-     and TESTID must be 1 (User 1: William Stone, Admin).
+  1. DEVELOPING must be set in .env (it enables the test identity bypass in
+     server.mjs). No source edits or middleware swaps are needed.
   2. Reset the database before running:
        node default_insts.mjs
   3. Start the server:
        node server.mjs
+
+Requests authenticate by sending an `e2e:<email>` bearer token, which the server
+accepts in place of a real Google token while DEVELOPING is set. Tests act as
+User 1 (William Stone, Admin) by default; use the as_user() context manager to
+act as somebody else for a few requests:
+
+    with as_user("alan_wang2@brown.edu"):
+        r = post("/trip/6/signup")
 
 Tests are numbered (test_01_, test_02_, ...) and run in that order.
 They share database state, so do not run individual tests in isolation
@@ -18,15 +24,40 @@ without resetting the database first.
 
 import requests
 import unittest
+from contextlib import contextmanager
 from datetime import date
 
 BASE_URL = "http://localhost:8080"
 
+# The account requests act as. Changed only via as_user().
+DEFAULT_USER = "william_l_stone@brown.edu"
+_current_user = DEFAULT_USER
+
+
+@contextmanager
+def as_user(email):
+    """Act as `email` for the duration of the block, then restore the previous
+    identity. Pass None to send requests with no credentials at all."""
+    global _current_user
+    previous = _current_user
+    _current_user = email
+    try:
+        yield
+    finally:
+        _current_user = previous
+
+
+def _headers():
+    if _current_user is None:
+        return {}
+    return {"Authorization": f"Bearer e2e:{_current_user}"}
+
+
 def get(path):
-    return requests.get(f"{BASE_URL}{path}")
+    return requests.get(f"{BASE_URL}{path}", headers=_headers())
 
 def post(path, body=None):
-    return requests.post(f"{BASE_URL}{path}", json=body)
+    return requests.post(f"{BASE_URL}{path}", json=body, headers=_headers())
 
 
 class ServerTests(unittest.TestCase):
@@ -415,6 +446,43 @@ class ServerTests(unittest.TestCase):
         for field in ("tripId", "tripName", "date", "sentenceDesc", "lotteryInfo"):
             self.assertIn(field, trips[0])
         self.assertEqual(trips[0]["lotteryInfo"], "Hosted Trip")
+
+
+    # =========================================================================
+    # Test identity bypass
+    # =========================================================================
+
+    def test_43_unauthenticated_request_to_protected_route_returns_401(self):
+        """Sending no credentials at all must not fall through as a logged-in user."""
+        with as_user(None):
+            r = get("/user/")
+        self.assertEqual(r.status_code, 401)
+
+    def test_44_can_act_as_a_different_user(self):
+        """The whole point of the bypass: switching identity mid-run, no restart."""
+        with as_user("alan_wang2@brown.edu"):
+            r = get("/user/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["email"], "alan_wang2@brown.edu")
+        # Identity must be restored after the block
+        self.assertEqual(get("/user/").json()["email"], "william_l_stone@brown.edu")
+
+    def test_45_unseen_brown_email_is_auto_created(self):
+        """Mirrors the real Google path: first request from a Brown address makes a user."""
+        with as_user("ada.lovelace@brown.edu"):
+            r = get("/user/")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["email"], "ada.lovelace@brown.edu")
+        self.assertEqual(data["firstName"], "ada")
+        self.assertEqual(data["lastName"], "lovelace")
+        self.assertEqual(data["role"], "Participant")
+
+    def test_46_non_brown_email_is_rejected(self):
+        """The bypass must not sidestep the Brown/RISD restriction."""
+        with as_user("someone@gmail.com"):
+            r = get("/user/")
+        self.assertEqual(r.status_code, 401)
 
 
 if __name__ == "__main__":

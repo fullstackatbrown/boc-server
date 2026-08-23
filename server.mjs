@@ -56,37 +56,74 @@ async function logRequest(req, _res, next) {
   next();
 }
 
+//
+// TEST IDENTITY BYPASS
+//
+// Lets automated tests (verify.py, Playwright) act as any user without a real Google
+// login. This is not a convenience: multi-user flows (lottery -> waitlist -> attendance)
+// are otherwise untestable, since they need several distinct Brown/RISD accounts acting
+// in one run.
+//
+// A request authenticates as <email> by sending `Authorization: Bearer e2e:<email>`.
+// Users are still only auto-created for @brown.edu / @risd.edu addresses, exactly as on
+// the real Google path.
+//
+// SAFETY: this is an impersonation bypass. It is gated on TWO independent conditions and
+// is off unless both hold. Never set DEVELOPING in a production environment.
+const E2E_TOKEN_PREFIX = "e2e:";
+const E2E_AUTH_ENABLED =
+  Boolean(process.env.DEVELOPING) && process.env.NODE_ENV !== "production";
+
+//Returns a Google-userinfo-shaped profile for an e2e token, or null if this isn't one
+//(or if the bypass is disabled), in which case the caller falls through to real Google auth
+function e2eProfile(token) {
+  if (!E2E_AUTH_ENABLED) return null;
+  if (!token || !token.startsWith(E2E_TOKEN_PREFIX)) return null;
+  const email = token.slice(E2E_TOKEN_PREFIX.length).trim().toLowerCase();
+  if (!email.includes("@")) return null;
+  //Derive a stable display name from the address: "ada.lovelace@brown.edu" -> Ada Lovelace
+  const [localPart] = email.split("@");
+  const [first, ...rest] = localPart.split(".");
+  return {
+    email,
+    given_name: first,
+    family_name: rest.length > 0 ? rest.join(".") : "E2E"
+  };
+}
+
 //Checks authentication of incoming requests
 async function authenticate(req, res, next) {
   try {
     // Use the token to fetch data from an external API
     const token = req.headers.authorization?.split(" ")[1];
 
-    // If the token is not a valid google token (or was not supplied), this axios request will fail
-    const response = await axios.get(
-      "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    );
+    // If the token is not a valid google token (or was not supplied), this axios request will fail.
+    // A test-identity token short-circuits the Google call with an equivalent profile.
+    const profile =
+      e2eProfile(token) ??
+      (
+        await axios.get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        })
+      ).data;
 
     // If the token is valid but the user hasn't been seen, user will be Null
     let user = await User.findOne({
       where: {
-        email: response.data.email
+        email: profile.email
       }
     });
 
     if (user == null) {
-      if (response.data.email.endsWith("@brown.edu") || response.data.email.endsWith("@risd.edu")) {
+      if (profile.email.endsWith("@brown.edu") || profile.email.endsWith("@risd.edu")) {
         user = await createUser(
-          response.data.given_name,
-          response.data.family_name ? response.data.family_name : "",
-          response.data.email
+          profile.given_name,
+          profile.family_name ? profile.family_name : "",
+          profile.email
         );
-        logger.log(`Created new user with email ${response.data.email}`);
+        logger.log(`Created new user with email ${profile.email}`);
       } else {
         throw Error("User does not have a Brown or RISD email address.");
       }
@@ -107,7 +144,9 @@ async function authenticate(req, res, next) {
   }
 }
 
-//Replacement authentication for testing; Change TESTID to take actions on differing accounts
+//Replacement authentication for testing; Change TESTID to take actions on differing accounts.
+//NOTE: prefer the test identity bypass above (an `e2e:<email>` bearer token) - it needs no
+//source edit or restart and can switch users mid-run, which this cannot.
 const TESTID = 1;
 function phonyAuth(req, _res, next) {
   req.userId = TESTID;
@@ -525,4 +564,13 @@ const PORT = process.env.PORT || 8080; // should be proxied behind nginx
 app.listen(PORT, async () => {
   await logger.start();
   logger.log(`STARTUP: Running on port ${PORT}.`);
+  if (E2E_AUTH_ENABLED) {
+    //Deliberately noisy on stderr as well as the log - this must never go unnoticed
+    const warning =
+      "TEST IDENTITY BYPASS IS ACTIVE - any request may impersonate any user via an " +
+      "'e2e:<email>' bearer token. This must NEVER be enabled in production. " +
+      "Unset DEVELOPING (or set NODE_ENV=production) to disable.";
+    console.warn(`\n!!! ${warning} !!!\n`);
+    logger.log(`STARTUP WARNING: ${warning}`);
+  }
 });

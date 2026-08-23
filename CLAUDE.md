@@ -21,7 +21,7 @@ Annotated Abbreviated File Tree:
 | - queries.mjs - Holds methods that request handlers in server.mjs call upon to resolve database interaction behavior. Also performs the `sequelize.sync()` on import — importing this module is what threads model-database sync into any script that needs it.
 | - default_insts.mjs - Recreates the local database with a standard set of test instances; run manually with `node default_insts.mjs` to reset the local database to a known state for testing
 | - verify.py - Holds web server route verification methods
-| - .env - private credentials for MariaDB access plus server config. NOTE: the local `.env` currently defines only GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, DEVELOPING, and MARIADB_SERVICE_PASSWORD. `PORT` and `ACCEPTED_ORIGIN` are read by server.mjs but are NOT set locally — PORT falls back to 8080, and the CORS allowlist ends up containing the literal string "undefined" alongside http://localhost:3000. That is fine for local dev (the frontend runs on :3000) but means production must set ACCEPTED_ORIGIN.
+| - .env - private credentials for MariaDB access plus server config. `MARIADB_DATABASE` (optional, defaults to `boc`) lets tests target a throwaway database. `DEVELOPING` enables the test identity bypass (see below). NOTE: the local `.env` currently defines only GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, DEVELOPING, and MARIADB_SERVICE_PASSWORD. `PORT` and `ACCEPTED_ORIGIN` are read by server.mjs but are NOT set locally — PORT falls back to 8080, and the CORS allowlist ends up containing the literal string "undefined" alongside http://localhost:3000. That is fine for local dev (the frontend runs on :3000) but means production must set ACCEPTED_ORIGIN.
 | OTHER CODE FILES:
 | - logger.mjs - Creates logger for live logging of server behavior; writes to ./log.txt, which is truncated on each server start (only server.mjs should call logger.start())
 | - errors.mjs - Defines four custom errors used by web server: AuthError (401), NonexistenceError (404), InvalidDataError (422), IllegalOperationError (403)
@@ -69,12 +69,38 @@ Any new features to be added with the modified database structure should only be
 If a route change alters a response shape the frontend reads, flag it — the corresponding TypeScript interfaces live in `../project-boc/src/models/models.tsx` and will need to be updated in lockstep.
 
 ### Running verify.py
-Note the prerequisites described at the top of verify.py - these prerequisites must be attained before running the script:
-1. `phonyAuth` must be swapped in for `authenticate` in server.mjs, with `TESTID = 1` (User 1: William Stone, Admin)
+1. Ensure `DEVELOPING` is set in `.env` (it is by default)
 2. `node default_insts.mjs` to reset the database
 3. `node server.mjs` to start the server
+4. `python3 verify.py`
 
-Tests are numbered and share database state — they must be run as a full ordered suite, not individually, unless the database is reset first. **If authentication is changed in order to run verify.py, be sure to change it back to standard authentication afterwards.**
+No source edits or middleware swaps are needed — verify.py authenticates via the test identity bypass below. Tests are numbered and share database state, so they must be run as a full ordered suite, not individually, unless the database is reset first.
+
+To act as somebody else for a few requests, use the `as_user` context manager:
+```python
+with as_user("alan_wang2@brown.edu"):
+    r = post("/trip/6/signup")
+```
+Passing `None` sends no credentials at all, for testing that a route is properly protected.
+
+## Test Identity Bypass
+Multi-user flows (lottery -> waitlist -> attendance) need several distinct Brown/RISD accounts acting within a single run. That is impossible against real Google auth, and `phonyAuth` can't do it either — it pins one user id at module scope, so switching identity means editing source and restarting.
+
+So: while enabled, a request may authenticate as any user by sending
+
+```
+Authorization: Bearer e2e:<email>
+```
+
+`authenticate` short-circuits the Google userinfo call and builds an equivalent profile. Everything downstream is unchanged — including auto-creation, which still only happens for @brown.edu / @risd.edu addresses. A display name is derived from the address (`ada.lovelace@brown.edu` -> Ada Lovelace).
+
+**This is an impersonation bypass.** It is gated on two independent conditions and is inert unless BOTH hold:
+- `DEVELOPING` is set, AND
+- `NODE_ENV !== "production"`
+
+When active, the server prints a loud warning to stderr and the log on startup. Never set `DEVELOPING` in a production environment. Tests `test_43` through `test_46` cover both gates and the domain restriction.
+
+`phonyAuth` still exists but is superseded; prefer the bypass for anything new.
 
 ## Known route_descs.txt drift
 route_descs.txt is the source of truth for *intent*, but it is not perfectly in sync with the code. Currently:
@@ -84,7 +110,7 @@ route_descs.txt is the source of truth for *intent*, but it is not perfectly in 
 When you touch either of these, fix the drift rather than working around it.
 
 ## Claude Best Practice Reminders
-- For local testing without a real Google login, swap `app.use(authenticate)` for `app.use(phonyAuth)` in server.mjs. The `phonyAuth` middleware sets req.userId to the `TESTID` constant defined near the top of the file; change TESTID to test as different users.
+- For local testing without a real Google login, send an `e2e:<email>` bearer token (see Test Identity Bypass). Do NOT reach for `phonyAuth` — it needs a source edit plus a restart and cannot switch users mid-run.
 - When checking whether a route is fully implemented, verify it in both places: mounted under the correct router in server.mjs AND backed by an exported function in queries.mjs. route_descs.txt describes intended behavior but is not always in sync with what's actually implemented.
 - `authenticate` never throws on failure — it silently calls `next()` with no `req.userId`. Authorization is enforced downstream by `loggedIn`, `tripLeaderCheck`, and `leaderPlusCheck`. A route that forgets one of those guards is silently public.
 - All async route handlers must be wrapped in `asyncHandler`, and async middleware too, or thrown errors will not reach the error handler.
