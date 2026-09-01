@@ -23,11 +23,18 @@ Annotated Abbreviated File Tree:
 | - verify.py - Holds web server route verification methods
 | - .env - private credentials for MariaDB access plus server config. `MARIADB_DATABASE` (optional, defaults to `boc`) lets tests target a throwaway database. `DEVELOPING=1` enables the test identity bypass (see below). `MAIL_TRANSPORT` selects the mail transport and defaults to `capture`. NOTE: the local `.env` currently defines only GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, DEVELOPING, and MARIADB_SERVICE_PASSWORD. `PORT` and `ACCEPTED_ORIGIN` are read by server.mjs but are NOT set locally — PORT falls back to 8080, and the CORS allowlist ends up containing the literal string "undefined" alongside http://localhost:3000. That is fine for local dev (the frontend runs on :3000) but means production must set ACCEPTED_ORIGIN.
 | OTHER CODE FILES:
-| - mailer.mjs - Transport layer for outgoing email. Picks a transport from MAIL_TRANSPORT
-|   ("capture", the default everywhere, or "smtp") and exposes a single sendMail that
-|   never throws.
-| - notifications.mjs - The six trip email templates plus the three senders the routes call.
-|   All copy lives here; see "Email Notifications" below.
+| - email-client/ - Everything to do with outgoing mail. See "Email Notifications" below.
+|   - mailer.mjs - Transport. Picks "capture" (the default everywhere) or "smtp" from
+|     MAIL_TRANSPORT, derives both message bodies via render.mjs, and exposes a single
+|     sendMail that never throws.
+|   - notifications.mjs - The six templates plus the three senders the routes call. All
+|     copy lives here and nowhere else; keep rendering logic out of it, since this is the
+|     file non-programmers edit.
+|   - render.mjs - Turns a template's markup into an HTML body and a plain-text
+|     alternative from one source, so the two can never drift.
+| - test-helpers/ - Manual helpers, not part of verify.py. run-trip.mjs forces a trip
+|   transition that has no UI trigger; smtp-check.mjs authenticates against Gmail and
+|   sends all six templates to the service account (never to a student).
 | - logger.mjs - Creates logger for live logging of server behavior; writes to ./log.txt, which is truncated on each server start (only server.mjs should call logger.start())
 | - errors.mjs - Defines four custom errors used by web server: AuthError (401), NonexistenceError (404), InvalidDataError (422), IllegalOperationError (403)
 | - server_jobs.mjs - Creates cron jobs run on web server for scheduled database actions: runs/destroys trips daily at 5am; backs up the database to past_semesters/ on Jan 1 and Jun 1
@@ -137,8 +144,26 @@ is only what the code and that file can't tell you.
   **project-boc's route shape** (`/trips/view?id=<tripId>`). A rename there silently sends
   students dead links; nothing typechecks this.
 - The "not selected" template is **never sent today** (see the lottery note under Domain
-  Model Notes) and is the one template no test exercises. It goes live with the planned
-  waitlist-size feature — verify it then.
+  Model Notes). It goes live with the planned waitlist-size feature — verify it then.
+- **All copy lives in notifications.mjs**, and rendering machinery must stay out of that
+  file — the club edits it. Templates are plain text with exactly two pieces of markup,
+  `*bold*` and `[label](url)`; blank lines separate paragraphs and a single newline is a
+  line break (that is what keeps the two-line signoff intact). `render.mjs` derives *both*
+  the HTML body and the plain-text alternative from that one source so they cannot drift,
+  and `mailer.mjs` calls it — templates never build HTML themselves. Escaping runs before
+  markup expands, so an `&` in a trip name survives as `&amp;`.
+- Link colour is `#4A7A2E`, deliberately **not** the site's brand green `#5B913A`, which
+  measures 3.78:1 against white and fails WCAG AA for body text. This is 5.10:1.
+- **Subject lines are asserted in verify.py** via the `SUBJ_*` constants at the top of that
+  file; editing a subject means editing those too. They are collected in one place so the
+  failure points at the wording rather than at five scattered tests. `test_51` fails if any
+  message would go out with markup unconverted — the failure mode that would otherwise
+  reach students as literal `*asterisks*` in Gmail.
+- To preview without sending, leave `MAIL_TRANSPORT` unset and read `sent_mail.jsonl`. To
+  send for real, `MAIL_TRANSPORT=smtp node test-helpers/smtp-check.mjs` puts all six
+  templates in the service account's own inbox and can never reach a student. **verify.py
+  only exercises four of the six** — "not selected" and "no show" never fire in the seeded
+  flow, so check those two by hand after editing them.
 
 ## Known route_descs.txt drift
 route_descs.txt is the source of truth for *intent*, but it is not perfectly in sync with the code. Currently:
