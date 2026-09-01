@@ -44,3 +44,4 @@ next-env.d.ts
 test_json.json
 requirement.txt
 listserv-additions.txt
+sent_mail.jsonl

@@ -22,6 +22,8 @@ They share database state, so do not run individual tests in isolation
 without resetting the database first.
 """
 
+import json
+import os
 import requests
 import unittest
 from contextlib import contextmanager
@@ -60,7 +62,32 @@ def post(path, body=None):
     return requests.post(f"{BASE_URL}{path}", json=body, headers=_headers())
 
 
+# Mail is captured to a file rather than sent while DEVELOPING is set (see mailer.mjs).
+# The email tests at the end of the suite assert against what earlier tests produced.
+SENT_MAIL_FILE = "./sent_mail.jsonl"
+
+
+def all_sent_mail():
+    """Every captured message, one JSON object per line."""
+    try:
+        with open(SENT_MAIL_FILE) as f:
+            return [json.loads(line) for line in f if line.strip()]
+    except FileNotFoundError:
+        return []
+
+
+def sent_mail(subject_prefix):
+    """Every captured message whose subject starts with subject_prefix."""
+    return [m for m in all_sent_mail() if m["subject"].startswith(subject_prefix)]
+
+
 class ServerTests(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        """Clear captured mail so the email tests only see this run's messages."""
+        if os.path.exists(SENT_MAIL_FILE):
+            os.remove(SENT_MAIL_FILE)
 
     # =========================================================================
     # / OR <undefined_route>
@@ -493,6 +520,54 @@ class ServerTests(unittest.TestCase):
         with as_user("someone@gmail.com"):
             r = get("/user/")
         self.assertEqual(r.status_code, 401)
+
+    # =========================================================================
+    # Email notifications
+    #
+    # These assert against mail captured by earlier tests in this run: the
+    # lottery in test_29 (trip 6), the waitlist add in test_31/32 (trip 8), and
+    # attendance in test_35 (trip 9).
+    # =========================================================================
+
+    def test_47_lottery_emails_selected_and_waitlisted_groups(self):
+        """Trip 6 selects 1 of 3 signups; the other 2 are waitlisted.
+        No 'not selected' mail, since the lottery waitlists everyone it drops."""
+        #Subjects carry the trip name, so these counts stay scoped to trip 6 even
+        #if another test later runs a lottery elsewhere
+        selected = sent_mail("You're on the trip: Small Trip")
+        waitlisted = sent_mail("You're on the waitlist for: Small Trip")
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(len(waitlisted), 1)
+        self.assertEqual(len(sent_mail("Lottery results for: Small Trip")), 0)
+        self.assertEqual(len(selected[0]["bcc"]), 1)
+        self.assertEqual(len(waitlisted[0]["bcc"]), 2)
+
+    def test_48_waitlist_promotion_emails_only_the_promoted_user(self):
+        """test_31 promoted one user off trip 8; test_32 promoted nobody and
+        must not have sent an empty message."""
+        messages = sent_mail("A spot opened up: Pre-Trip Test Trip")
+        self.assertEqual(len(messages), 1)
+        #Which waitlister gets promoted is random, so only the count is asserted
+        self.assertEqual(len(messages[0]["bcc"]), 1)
+
+    def test_49_attendance_thanks_attendees_and_skips_excused(self):
+        """Trip 9: one attendee, no no-shows, so only the thank-you goes out."""
+        messages = sent_mail("Thanks for coming on Post-Trip Test Trip")
+        self.assertEqual(len(messages), 1)
+        self.assertEqual(messages[0]["bcc"], ["alan_wang2@brown.edu"])
+        self.assertEqual(len(sent_mail("We missed you on Post-Trip Test Trip")), 0)
+
+    def test_50_participants_are_bcc_only_and_leaders_are_cc(self):
+        """The privacy property every trip email depends on: a recipient must
+        never appear in a header the other recipients can read."""
+        messages = all_sent_mail()
+        self.assertGreater(len(messages), 0)
+        for m in messages:
+            self.assertGreater(len(m["cc"]), 0, f"no leaders CC'd on {m['subject']}")
+            self.assertEqual(m["replyTo"], ", ".join(m["cc"]))
+            for recipient in m["bcc"]:
+                self.assertNotIn(recipient, m["cc"])
+                self.assertNotEqual(recipient, m["to"])
 
 
 if __name__ == "__main__":

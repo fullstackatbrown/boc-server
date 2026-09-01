@@ -52,15 +52,19 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 (the notAccepted list will always be empty). Selected participants'
                                                                                 elevated lotteryWeights are reset to 1; non-selected participants
                                                                                 receive a lotteryWeight bonus. May only be performed if trip status
-                                                                                is currently Open.
+                                                                                is currently Open. Emails each non-empty group of participants (see
+                                                                                EMAIL NOTIFICATIONS below).
 /trip/<tripId>/lead/participants        GET     Trip Leader     N/A             Returns a list of all Participant-role signups on a trip regardless of
                                                                                 signup status. Each entry includes firstName, lastName, email, status,
                                                                                 confirmed, and paid.
 /trip/<tripId>/lead/add-participant     POST    Trip Leader     N/A             Adds a participant from the waitlist to the list of selected participants,
                                                                                 prioritizing confirmed participants. Will return a JSON object with a single
-                                                                                field "success" which will be set to 0 if there are no participants on the
-                                                                                waitlist left and 1 otherwise. May only be performed if trip status is
-                                                                                currently Pre-Trip.
+                                                                                field "added", a list of the emails promoted (a list so a batch add fits the
+                                                                                same shape), plus "success", which is 0 when the waitlist was empty and 1
+                                                                                otherwise. "success" is legacy - it is just added.length, and a batch add
+                                                                                will make it ambiguous; prefer "added".
+                                                                                May only be performed if trip status is currently Pre-Trip. Emails everyone
+                                                                                in "added" (see EMAIL NOTIFICATIONS below).
 /trip/<tripId>/lead/remove-participant  POST    Trip Leader     Remove Json     Removes the participant specified by email from the trip (takes their Selected
                                                                                 status and turns it into Not Selected). Can only be performed if the trip
                                                                                 status is currently Pre-Trip and the specified email matches a selected
@@ -69,7 +73,8 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 weights accordingly. Deletes signup instances of excused absents.
                                                                                 Increments tripsLead for all trip leaders. Sets trip status to Complete.
                                                                                 May only be performed if trip status is currently Post-Trip and current
-                                                                                datetime is on or after the trip's plannedDate.
+                                                                                datetime is on or after the trip's plannedDate. Emails attendees and
+                                                                                no-shows separately (see EMAIL NOTIFICATIONS below).
 /trip/<tripId>/signup                   POST    Any Role        N/A             Creates a new TripSignUp instance for the user on the trip at <tripId>.
                                                                                 May only be performed if the trip has Open status.
 /trip/<tripId>/participate/confirm      POST    Any Role        N/A             Sets confirmed=true on the user's TripSignUp for the trip at tripId.
@@ -145,3 +150,23 @@ Role Json:
     role: <web_role>, //May be any of Participant, Leader, or Admin
     email: <email_of_user_to_alter>,
 }
+
+EMAIL NOTIFICATIONS:
+Three routes send mail as a side effect. Every message CCs the trip's leaders, sets them
+as Reply-To, and BCCs its participant recipients, so participants never see each other's
+addresses. A group with no recipients is skipped rather than sent empty.
+
+/trip/<tripId>/lead/lottery          Selected -> "You're on the trip"
+                                     Waitlisted -> "You're on the waitlist"
+                                     Not Selected -> "Lottery results" (currently never
+                                     sent, since the lottery waitlists everyone it does
+                                     not select; goes live with trip waitlist sizes)
+/trip/<tripId>/lead/add-participant  Everyone in "added" -> "A spot opened up"
+/trip/<tripId>/lead/attendance       Attended (including additionalParticipants) ->
+                                     "Thanks for coming"
+                                     No Show -> "We missed you"
+                                     Excused Absence -> nothing; they cancelled ahead of
+                                     time and their signup is deleted
+
+Sending never fails a request: mailer.mjs logs and swallows errors, because each of these
+routes has already committed an irreversible trip transition by the time mail goes out.

@@ -21,8 +21,13 @@ Annotated Abbreviated File Tree:
 | - queries.mjs - Holds methods that request handlers in server.mjs call upon to resolve database interaction behavior. Also performs the `sequelize.sync()` on import — importing this module is what threads model-database sync into any script that needs it.
 | - default_insts.mjs - Recreates the local database with a standard set of test instances; run manually with `node default_insts.mjs` to reset the local database to a known state for testing
 | - verify.py - Holds web server route verification methods
-| - .env - private credentials for MariaDB access plus server config. `MARIADB_DATABASE` (optional, defaults to `boc`) lets tests target a throwaway database. `DEVELOPING` enables the test identity bypass (see below). NOTE: the local `.env` currently defines only GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, DEVELOPING, and MARIADB_SERVICE_PASSWORD. `PORT` and `ACCEPTED_ORIGIN` are read by server.mjs but are NOT set locally — PORT falls back to 8080, and the CORS allowlist ends up containing the literal string "undefined" alongside http://localhost:3000. That is fine for local dev (the frontend runs on :3000) but means production must set ACCEPTED_ORIGIN.
+| - .env - private credentials for MariaDB access plus server config. `MARIADB_DATABASE` (optional, defaults to `boc`) lets tests target a throwaway database. `DEVELOPING=1` enables the test identity bypass (see below). `MAIL_TRANSPORT` selects the mail transport and defaults to `capture`. NOTE: the local `.env` currently defines only GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, DEVELOPING, and MARIADB_SERVICE_PASSWORD. `PORT` and `ACCEPTED_ORIGIN` are read by server.mjs but are NOT set locally — PORT falls back to 8080, and the CORS allowlist ends up containing the literal string "undefined" alongside http://localhost:3000. That is fine for local dev (the frontend runs on :3000) but means production must set ACCEPTED_ORIGIN.
 | OTHER CODE FILES:
+| - mailer.mjs - Transport layer for outgoing email. Picks a transport from MAIL_TRANSPORT
+|   ("capture", the default everywhere, or "smtp") and exposes a single sendMail that
+|   never throws.
+| - notifications.mjs - The six trip email templates plus the three senders the routes call.
+|   All copy lives here; see "Email Notifications" below.
 | - logger.mjs - Creates logger for live logging of server behavior; writes to ./log.txt, which is truncated on each server start (only server.mjs should call logger.start())
 | - errors.mjs - Defines four custom errors used by web server: AuthError (401), NonexistenceError (404), InvalidDataError (422), IllegalOperationError (403)
 | - server_jobs.mjs - Creates cron jobs run on web server for scheduled database actions: runs/destroys trips daily at 5am; backs up the database to past_semesters/ on Jan 1 and Jun 1
@@ -69,7 +74,8 @@ Any new features to be added with the modified database structure should only be
 If a route change alters a response shape the frontend reads, flag it — the corresponding TypeScript interfaces live in `../project-boc/src/models/models.tsx` and will need to be updated in lockstep.
 
 ### Running verify.py
-1. Ensure `DEVELOPING` is set in `.env` (it is by default)
+1. Ensure `DEVELOPING=1` is set in `.env` (it is by default). The check is a strict
+   comparison against `"1"` — `DEVELOPING=0` or `DEVELOPING=true` both read as off.
 2. `node default_insts.mjs` to reset the database
 3. `node server.mjs` to start the server
 4. `python3 verify.py`
@@ -95,12 +101,44 @@ Authorization: Bearer e2e:<email>
 `authenticate` short-circuits the Google userinfo call and builds an equivalent profile. Everything downstream is unchanged — including auto-creation, which still only happens for @brown.edu / @risd.edu addresses. A display name is derived from the address (`ada.lovelace@brown.edu` -> Ada Lovelace).
 
 **This is an impersonation bypass.** It is gated on two independent conditions and is inert unless BOTH hold:
-- `DEVELOPING` is set, AND
+- `DEVELOPING` is exactly `"1"` (a strict comparison, because `Boolean("0")` is `true`
+  and a stale `DEVELOPING=0` sat in the production `.env` until 2026-08-31), AND
 - `NODE_ENV !== "production"`
 
 When active, the server prints a loud warning to stderr and the log on startup. Never set `DEVELOPING` in a production environment. Tests `test_43` through `test_46` cover both gates and the domain restriction.
 
 `phonyAuth` still exists but is superseded; prefer the bypass for anything new.
+
+## Email Notifications
+`/lead/lottery`, `/lead/add-participant`, and `/lead/attendance` send mail as a side
+effect. Per-route triggers and the CC/BCC contract live in route_descs.txt; what follows
+is only what the code and that file can't tell you.
+
+- **Sending is the caller's responsibility, and a caller need not be a route.** The three
+  query functions return who was affected (`runLottery`'s three lists, `addParticipant`'s
+  `added`, `doAttendance`'s `{attended, noShow}`); the route handler passes that to
+  notifications.mjs. Keeping it out of queries.mjs is what lets scripts and cron call those
+  functions without mailing anyone — but a cron job *may* legitimately want to notify, so
+  don't read this as "routes only". `server_jobs.mjs` has two candidates today: `runTrip`
+  drops every remaining waitlister to Not Selected at 5am, and `destroyTrip` deletes Open
+  trips past their date along with their signups. Neither tells anyone.
+- **Recipient lists come from the query function, never re-derived from `req.body`.**
+  `doAttendance` deletes excused absences and filters walk-ons who were already selected;
+  anything recomputing that from the request will disagree with the database.
+- **Transport** is `capture` (append to `sent_mail.jsonl`, send nothing) or `smtp`, chosen by
+  `MAIL_TRANSPORT`. It defaults to **capture everywhere** — sending requires setting
+  `MAIL_TRANSPORT=smtp` explicitly, which only production does. A development box that
+  mails real students is unrecoverable; a production box that doesn't is not, and
+  `server.mjs` prints a loud startup warning when `NODE_ENV=production` and the transport
+  isn't `smtp`.
+- **The capture file is JSONL, not a JSON array**, because a trip transition sends several
+  messages concurrently and read-modify-write on a shared file loses all but the last.
+- `FRONTEND_URL` builds links back into the site, and notifications.mjs hardcodes
+  **project-boc's route shape** (`/trips/view?id=<tripId>`). A rename there silently sends
+  students dead links; nothing typechecks this.
+- The "not selected" template is **never sent today** (see the lottery note under Domain
+  Model Notes) and is the one template no test exercises. It goes live with the planned
+  waitlist-size feature — verify it then.
 
 ## Known route_descs.txt drift
 route_descs.txt is the source of truth for *intent*, but it is not perfectly in sync with the code. Currently:

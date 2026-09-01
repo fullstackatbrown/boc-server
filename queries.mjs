@@ -261,14 +261,18 @@ async function getTripParticipants(trip) {
   return participants;
 }
 
-async function getPossibleParticipantEmails(trip) {
+async function getLeaderEmails(trip) {
   const leaders = await trip.getUsers({
     attributes: ["email"],
     through: {
       where: { tripRole: "Leader" },
     }
   });
-  const leaderEmails = leaders.map(l => l.email);
+  return leaders.map(l => l.email);
+}
+
+async function getPossibleParticipantEmails(trip) {
+  const leaderEmails = await getLeaderEmails(trip);
   const possibleParticipants = await User.findAll({
     attributes: ["email"],
     where: { email : { [Op.notIn] : leaderEmails } }
@@ -448,9 +452,10 @@ async function runLottery(trip) {
 async function addParticipant(trip) {
   if (trip.status != "Pre-Trip") throw new IllegalOperationError("May only pull participants from the waitlist when trip is in Pre-Trip phase");
   const waitlistedSignups = await trip.getTripSignUps({
-    where: { status: "Waitlisted" }
+    where: { status: "Waitlisted" },
+    include: User, //So the promoted user's email is on hand without a second query
   })
-  if (waitlistedSignups.length == 0) return { success : 0 }; //Need to return object to indicate whether or not there was a participant to add
+  if (waitlistedSignups.length == 0) return { success : 0, added: [] }; //Need to return object to indicate whether or not there was a participant to add
   const confirmedSignups = waitlistedSignups.filter((ws) => ws.confirmed);
   //Pool to draw from: confirmed waitlisters get priority, otherwise anyone waitlisted
   const pool = confirmedSignups.length != 0 ? confirmedSignups : waitlistedSignups;
@@ -459,7 +464,8 @@ async function addParticipant(trip) {
   const selectedSignup = pool[Math.floor(Math.random() * pool.length)];
   selectedSignup.status = "Selected";
   await selectedSignup.save();
-  return { success : 1 };
+  //added is a list so that a future batch add reports its promotions the same way
+  return { success : 1, added: [selectedSignup.User.email] };
 }
 
 const removeJsonFields = ["email"];
@@ -615,7 +621,15 @@ async function doAttendance(trip, attendanceJson) {
   //alterPc(trip, "Attendance", "complete", true);
   attendProms.push(...tripsLeadIncrProms, additionalAttendanceProm);
   await Promise.all(attendProms);
-  return trip.save();
+  await trip.save();
+  //Report who ended up where so callers don't have to re-derive it from the request.
+  //Walk-ons already on the selected list keep the status given there, matching the
+  //filter attendAdditionalParticipants applies - otherwise a selected No Show typed
+  //into the walk-on box would count as both.
+  const byState = (state) => emails.filter((e) => selectedParticipants[e] === state);
+  const walkOns = additionalParticipants.filter((e) => !emails.includes(e));
+  //Excused absences are omitted: their signups were just deleted
+  return { attended: [...byState("Attended"), ...walkOns], noShow: byState("No Show") };
 }
 
 async function tripSignup(userId, tripId) {
@@ -697,6 +711,7 @@ export default {
   createTrip,
   getTripParticipants, 
   getPossibleParticipantEmails,
+  getLeaderEmails,
   taskUpdate,
   tripUpdate,
   openTrip,

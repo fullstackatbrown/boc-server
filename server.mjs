@@ -38,6 +38,13 @@ const {
 } = queries;
 import cron from "node-cron";
 import jobs from "./server_jobs.mjs";
+//Trip notification emails. These never throw - see email-client/mailer.mjs.
+import {
+  notifyLottery,
+  notifyWaitlistPromotion,
+  notifyAttendance
+} from "./email-client/notifications.mjs";
+import { MODE as MAIL_MODE } from "./email-client/mailer.mjs";
 
 import https from "https";
 import fs from "fs";
@@ -50,9 +57,8 @@ import axios from "axios";
 
 //Logs method and origin of incoming requests
 async function logRequest(req, _res, next) {
-  logger.log(
-    `${req.method} request for ${req.path} received from ${req.connection.remoteAddress}:${req.connection.remotePort}`
-  );
+  //req.ip is the X-Forwarded-For client behind nginx, and the socket address otherwise
+  logger.log(`${req.method} request for ${req.path} received from ${req.ip}`);
   next();
 }
 
@@ -71,8 +77,11 @@ async function logRequest(req, _res, next) {
 // SAFETY: this is an impersonation bypass. It is gated on TWO independent conditions and
 // is off unless both hold. Never set DEVELOPING in a production environment.
 const E2E_TOKEN_PREFIX = "e2e:";
+//Compared against "1" rather than passed through Boolean(): env vars are strings, so
+//Boolean("0") is true, and a stale DEVELOPING=0 in the production .env read as "on" until
+//2026-08-31. Only NODE_ENV=production kept the bypass shut. Set DEVELOPING=1 to enable.
 const E2E_AUTH_ENABLED =
-  Boolean(process.env.DEVELOPING) && process.env.NODE_ENV !== "production";
+  process.env.DEVELOPING === "1" && process.env.NODE_ENV !== "production";
 
 //Returns a Google-userinfo-shaped profile for an e2e token, or null if this isn't one
 //(or if the bypass is disabled), in which case the caller falls through to real Google auth
@@ -252,6 +261,10 @@ import { json, urlencoded } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 const app = express();
+//Behind nginx every connection arrives from 127.0.0.1, so req.ip would always be loopback.
+//Trusting only loopback makes req.ip the real client from X-Forwarded-For while ignoring
+//that header from anywhere else - an internet-facing client cannot spoof its own IP.
+app.set("trust proxy", "loopback");
 
 //
 //REQUEST RESOLUTION PATH
@@ -345,13 +358,17 @@ tripRouter.post(
 tripRouter.post(
   "/lead/lottery",
   asyncHandler(async (req, res) => {
-    res.status(200).json(await runLottery(req.Trip));
+    const results = await runLottery(req.Trip);
+    await notifyLottery(req.Trip, results);
+    res.status(200).json(results);
   })
 );
 tripRouter.post(
   "/lead/add-participant",
   asyncHandler(async (req, res) => {
-    res.status(200).json(await addParticipant(req.Trip));
+    const result = await addParticipant(req.Trip);
+    await notifyWaitlistPromotion(req.Trip, result.added);
+    res.status(200).json(result);
   })
 );
 tripRouter.post(
@@ -363,7 +380,8 @@ tripRouter.post(
 tripRouter.post(
   "/lead/attendance",
   asyncHandler(async (req, res) => {
-    await doAttendance(req.Trip, req.body);
+    const outcome = await doAttendance(req.Trip, req.body);
+    await notifyAttendance(req.Trip, outcome);
     res.sendStatus(200);
   })
 );
@@ -570,6 +588,16 @@ app.listen(PORT, async () => {
       "TEST IDENTITY BYPASS IS ACTIVE - any request may impersonate any user via an " +
       "'e2e:<email>' bearer token. This must NEVER be enabled in production. " +
       "Unset DEVELOPING (or set NODE_ENV=production) to disable.";
+    console.warn(`\n!!! ${warning} !!!\n`);
+    logger.log(`STARTUP WARNING: ${warning}`);
+  }
+  if (process.env.NODE_ENV === "production" && MAIL_MODE !== "smtp") {
+    //Mail defaults to capture everywhere, so a production box that forgets MAIL_TRANSPORT
+    //sends nothing. That must be loud, not silent - it is otherwise invisible until a
+    //leader asks why participants never heard about a lottery.
+    const warning =
+      `MAIL_TRANSPORT is "${MAIL_MODE}", not "smtp" - NO EMAIL WILL BE SENT. ` +
+      "Set MAIL_TRANSPORT=smtp (plus SMTP_USER and SMTP_PASS) to enable delivery.";
     console.warn(`\n!!! ${warning} !!!\n`);
     logger.log(`STARTUP WARNING: ${warning}`);
   }

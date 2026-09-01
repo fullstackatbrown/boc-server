@@ -7,6 +7,7 @@ import queries from "./queries.mjs";
 const { runTrip } = queries; //This also threads the model-database-sync through queries for safe db interaction
 import models from "./models.mjs";
 import { Op } from "sequelize";
+import sequelize from "./sequelize.mjs"; //The connection itself - destroyTrip opens a transaction on it
 const { Trip } = models;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -49,7 +50,6 @@ async function runTrips() {
         }
     });
     if (tripsToDelete.length > 0) logger.log(`[SERVER DAEMON] Destroyed ${tripsToDelete.length} trips for being open on or past planned date`);
-    let proms = tripsToDelete.map(destroyTrip);
     //Run trips that are due to be run
     const tripsToRun = await Trip.findAll({
         where: {
@@ -60,16 +60,23 @@ async function runTrips() {
         }
     });
     if (tripsToRun.length > 0) logger.log(`[SERVER DAEMON] Ran ${tripsToRun.length} trip(s)!`);
-    const tripUpdateProms = tripsToRun.map(runTrip);
-    proms.concat(tripUpdateProms);
-    return Promise.all(proms);
+    //Sequential, not Promise.all: each destroyTrip opens its own transaction on `trips`,
+    //and running them concurrently fails intermittently with MariaDB 1020 "Record has
+    //changed since last read". This runs once a day over a handful of trips, so awaiting
+    //each in turn costs nothing and is the difference between reliable and roughly 50/50.
+    for (const trip of tripsToDelete) await destroyTrip(trip);
+    for (const trip of tripsToRun) await runTrip(trip);
 }
 
 async function backupDatabase() {
     const now = new Date();
-    const year = now.getFullYear();
     const month = now.getMonth() + 1; // 1-indexed
-    const season = month <= 5 ? "fall" : "spring";
+    // Each run backs up the semester that just ended. The June run captures the spring of
+    // the current year, but the January run captures the PREVIOUS year's fall - so it must
+    // not use the new calendar year it is running in.
+    const isFall = month <= 5;
+    const season = isFall ? "fall" : "spring";
+    const year = isFall ? now.getFullYear() - 1 : now.getFullYear();
     const backupPath = path.join(BACKUP_DIR, `${season}_${year}.sql`);
 
     await fs.mkdir(BACKUP_DIR, { recursive: true });
