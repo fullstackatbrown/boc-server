@@ -31,7 +31,8 @@ console.log("STAGE 1 ok - SMTP authentication succeeded");
 // STAGE 2 - drive the real notification path end to end. The stub trip supplies
 // getUsers because that is all queries.getLeaderEmails calls; leaders and
 // recipients are both the service account, so nothing reaches a student.
-const { notifyLottery, notifyAttendance } = await import("../email-client/notifications.mjs");
+const { notifyLottery, notifyWaitlistPromotion, notifyAttendance } =
+  await import("../email-client/notifications.mjs");
 
 const stubTrip = {
   id: 6,
@@ -45,8 +46,9 @@ await notifyLottery(stubTrip, {
   waitlisted: [SERVICE],
   notAccepted: [SERVICE], // normally empty; exercised here since no test covers it
 });
+await notifyWaitlistPromotion(stubTrip, [SERVICE]);
 await notifyAttendance(stubTrip, { attended: [SERVICE], noShow: [SERVICE] });
 
-console.log("STAGE 2 ok - five messages sent through notifications.mjs");
+console.log("STAGE 2 ok - all six templates sent through notifications.mjs");
 console.log("Check the service account inbox; each should render with Cc and Reply-To set.");
 process.exit(0);

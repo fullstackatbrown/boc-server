@@ -66,6 +66,16 @@ def post(path, body=None):
 # The email tests at the end of the suite assert against what earlier tests produced.
 SENT_MAIL_FILE = "./sent_mail.jsonl"
 
+# Subject lines are copy, and copy lives in email-client/notifications.mjs. These are the
+# only assertions tied to wording, so they are collected here: if the club edits a subject
+# the email tests fail pointing at this block, rather than in five scattered places.
+# Note that waitlist promotion deliberately reuses the SELECTED subject.
+SUBJ_SELECTED = "[ACTION REQUIRED] SELECTED - "
+SUBJ_WAITLISTED = "[ACTION REQUIRED] WAITLISTED - "
+SUBJ_NOT_SELECTED = "Status Update: "
+SUBJ_THANKS = "Thanks for coming on "
+SUBJ_NO_SHOW = "We missed you on "
+
 
 def all_sent_mail():
     """Every captured message, one JSON object per line."""
@@ -534,28 +544,41 @@ class ServerTests(unittest.TestCase):
         No 'not selected' mail, since the lottery waitlists everyone it drops."""
         #Subjects carry the trip name, so these counts stay scoped to trip 6 even
         #if another test later runs a lottery elsewhere
-        selected = sent_mail("You're on the trip: Small Trip")
-        waitlisted = sent_mail("You're on the waitlist for: Small Trip")
+        selected = sent_mail(SUBJ_SELECTED + "Small Trip")
+        waitlisted = sent_mail(SUBJ_WAITLISTED + "Small Trip")
         self.assertEqual(len(selected), 1)
         self.assertEqual(len(waitlisted), 1)
-        self.assertEqual(len(sent_mail("Lottery results for: Small Trip")), 0)
+        self.assertEqual(len(sent_mail(SUBJ_NOT_SELECTED + "Small Trip")), 0)
         self.assertEqual(len(selected[0]["bcc"]), 1)
         self.assertEqual(len(waitlisted[0]["bcc"]), 2)
 
     def test_48_waitlist_promotion_emails_only_the_promoted_user(self):
         """test_31 promoted one user off trip 8; test_32 promoted nobody and
-        must not have sent an empty message."""
-        messages = sent_mail("A spot opened up: Pre-Trip Test Trip")
+        must not have sent an empty message. Promotion shares the 'SELECTED'
+        subject with the lottery, so the trip name is what scopes this."""
+        messages = sent_mail(SUBJ_SELECTED + "Pre-Trip Test Trip")
         self.assertEqual(len(messages), 1)
         #Which waitlister gets promoted is random, so only the count is asserted
         self.assertEqual(len(messages[0]["bcc"]), 1)
 
     def test_49_attendance_thanks_attendees_and_skips_excused(self):
         """Trip 9: one attendee, no no-shows, so only the thank-you goes out."""
-        messages = sent_mail("Thanks for coming on Post-Trip Test Trip")
+        messages = sent_mail(SUBJ_THANKS + "Post-Trip Test Trip")
         self.assertEqual(len(messages), 1)
         self.assertEqual(messages[0]["bcc"], ["alan_wang2@brown.edu"])
-        self.assertEqual(len(sent_mail("We missed you on Post-Trip Test Trip")), 0)
+        self.assertEqual(len(sent_mail(SUBJ_NO_SHOW + "Post-Trip Test Trip")), 0)
+
+    def test_51_rendered_emails_have_no_leftover_markup(self):
+        """Templates are written with *bold* and [label](url); every message must
+        come out with both expanded, or the club will see raw markup in Gmail."""
+        messages = all_sent_mail()
+        self.assertGreater(len(messages), 0)
+        for m in messages:
+            self.assertIn("html", m, f"no html body on {m['subject']}")
+            self.assertNotIn("*", m["html"], f"unconverted asterisk in {m['subject']}")
+            self.assertNotIn("](", m["html"], f"unconverted link in {m['subject']}")
+            #The plain-text alternative keeps the URL visible instead of a bare label
+            self.assertNotIn("](", m["text"])
 
     def test_50_participants_are_bcc_only_and_leaders_are_cc(self):
         """The privacy property every trip email depends on: a recipient must

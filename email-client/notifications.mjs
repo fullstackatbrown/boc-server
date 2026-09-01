@@ -16,90 +16,67 @@ const SIGNOFF = "See you outside,\nThe Brown Outing Club";
 //the wording of an email should never mean touching sending logic.
 
 const selected = (trip) => ({
-  subject: `You're on the trip: ${trip.tripName}`,
-  text: `Good news - you were selected for ${trip.tripName} on ${when(trip)}.
+  subject: `[ACTION REQUIRED] SELECTED - ${trip.tripName}`,
+  text: `Congratulations, you were selected for ${trip.tripName} on ${when(trip)}!
 
-Head to the trip page to confirm your spot and take care of anything still
-outstanding, like payment or a waiver:
+While you currently have a spot on the trip, we still need you to *confirm your spot* for you to keep it. If you have not confirmed your spot shortly before the date of the trip, you might lose it to someone on the waitlist. To confirm your spot, visit the [trip page on the website](${tripUrl(trip)}) and click "Confirm". 
 
-  ${tripUrl(trip)}
+If you can no longer make it, please visit that same page to cancel your spot as soon as you can so that we can give your spot to someone on the waitlist as soon as possible. 
 
-If you can no longer make it, please cancel there as soon as you can so that
-someone on the waitlist can take your place.
+We're looking forward to exploring with you soon! You will receive an email with more trip specific details before the day of the trip. If you have any questions, feel free to respond to this email (it will go directly to the trip's leaders). 
 
 ${SIGNOFF}`,
 });
 
 const waitlisted = (trip) => ({
-  subject: `You're on the waitlist for: ${trip.tripName}`,
-  text: `You weren't selected in the lottery for ${trip.tripName} on ${when(trip)},
-but you are on the waitlist - spots open up regularly when people cancel.
+  subject: `[ACTION REQUIRED] WAITLISTED - ${trip.tripName}`,
+  text: `You are currently on the waitlist for ${trip.tripName} on ${when(trip)}. While you weren't directly selected, spots open up pretty regularly and your odds of getting on the trip if you're still interested are probably better than you think. 
 
-Confirm your interest on the trip page and you'll be first in line if one does:
+If you're still interested, please *confirm your interest* via the [trip page](${tripUrl(trip)}). Confirming your interest now will give you priority over all other waitlisted participants who have not done so. 
 
-  ${tripUrl(trip)}
-
-Not being selected doesn't count against you. It raises your odds the next time
-you enter a lottery.
+If you do not end up with a spot on the trip, we're sorry we weren't able to bring you with us! To compensate, your odds of getting on the next trip you sign up for will be increased.
 
 ${SIGNOFF}`,
 });
 
 const notSelected = (trip) => ({
-  subject: `Lottery results for: ${trip.tripName}`,
-  text: `Unfortunately you weren't selected for ${trip.tripName} on ${when(trip)},
-and the waitlist for this trip is already full.
+  subject: `Status Update: ${trip.tripName}`,
+  text: `Unfortunately you were not selected for ${trip.tripName} on ${when(trip)}, and you didn't make the waitlist either. Sorry about that.
 
-This isn't the end of the road. Not being selected raises your odds in future
-lotteries, so entering again genuinely helps. Everything we have coming up is here:
-
-  ${SITE}/trips
+We're sorry we weren't able to bring you with us; to compensate, your odds of getting on the next trip you sign up for are increased. Feel free to take a look at what we have coming up on our [trips page](${SITE}/trips). 
 
 ${SIGNOFF}`,
 });
 
 const promoted = (trip) => ({
-  subject: `A spot opened up: ${trip.tripName}`,
-  text: `A spot opened up, and you're on ${trip.tripName} on ${when(trip)}.
+  subject: `[ACTION REQUIRED] SELECTED - ${trip.tripName}`,
+  text: `A spot opened up, and you have been pulled off of the waitlist for ${trip.tripName} on ${when(trip)}!
 
-Please confirm on the trip page and handle anything still outstanding, like
-payment or a waiver:
+If you have not already done so, please *inform us of your continued interest by confirming* on the [trip page](${tripUrl(trip)}). If significant time passes without confirmation, it is possible for your spot to be handed to someone else on the waitlist. If you are no longer interested, please cancel your spot on the same page so we can give it to someone else.
 
-  ${tripUrl(trip)}
-
-If you can't make it after all, cancel there so we can pass the spot along.
+We're looking forward to exploring with you soon! You will receive an email with more trip specific details before the day of the trip. If you have any questions, feel free to respond to this email (it will go directly to the trip's leaders). 
 
 ${SIGNOFF}`,
 });
 
 const thanks = (trip) => ({
   subject: `Thanks for coming on ${trip.tripName}`,
-  text: `Thanks for coming out on ${trip.tripName}. We hope it was a good one.
+  text: `Thanks for coming out on ${trip.tripName} - we hope you enjoyed it as much as we did!
 
-Everything else we have coming up is here:
-
-  ${SITE}/trips
+Everything else we have coming up is [here](${SITE}/trips) and we look forward to seeing you on another trip soon!
 
 ${SIGNOFF}`,
 });
 
 const noShow = (trip) => ({
   subject: `We missed you on ${trip.tripName}`,
-  text: `Our records show you were signed up for ${trip.tripName} on ${when(trip)}
-but didn't make it, and we didn't hear from you beforehand.
+  text: `Our records show you were signed up for ${trip.tripName} on ${when(trip)} but didn't make it, and we didn't hear from you beforehand.
 
-Things come up, and we understand that. But a spot nobody claims is a spot another
-student could have had, so missing a trip without notice does lower your odds in
-future trip lotteries.
+Things come up, and we understand that. But a spot nobody claims is a spot another student could have had, so missing a trip without notice does *lower your odds in future trip lotteries*.
 
-If you know ahead of time that you can't make a trip, cancel on the trip page or
-let the leaders know. That costs you nothing and frees the spot for someone on the
-waitlist:
+If you know ahead of time that you can't make a trip, cancel on the [trip page](${tripUrl(trip)}) or let the leaders know. That costs you nothing and frees the spot for someone on the waitlist.
 
-  ${tripUrl(trip)}
-
-If you think this is a mistake, just reply to this email - the trip's leaders will
-see it.
+If you think this is a mistake, just reply to this email - the trip's leaders will see it.
 
 ${SIGNOFF}`,
 });

@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { promises as fs } from "fs";
 import logger from "../logger.mjs";
+import { renderBody } from "./render.mjs";
 import "dotenv/config";
 
 //Transport is either "capture" (append to CAPTURE_FILE, send nothing) or "smtp" (real
@@ -49,7 +50,10 @@ async function capture(msg) {
 //trip transition, so a mail failure must be logged and swallowed rather than turned
 //into a 500 that invites the leader to retry an operation they cannot repeat.
 export async function sendMail(msg) {
-  const message = { from: SERVICE_ADDRESS, to: SERVICE_ADDRESS, ...msg };
+  //Templates supply one markup source as `text`; both bodies are derived from it so the
+  //HTML and plain-text versions can never say different things.
+  const body = msg.text ? renderBody(msg.text) : {};
+  const message = { from: SERVICE_ADDRESS, to: SERVICE_ADDRESS, ...msg, ...body };
   try {
     if (MODE === "capture") await capture(message);
     else await smtpTransport().sendMail(message);
