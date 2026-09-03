@@ -537,11 +537,19 @@ publicRouter.get(
   "/leader-stats/:firstName/:lastName",
   asyncHandler(async (req, res) => {
     const { firstName, lastName } = req.params;
+    //Trips led that have actually happened. A Leader signup row exists from the moment a
+    //trip is created, so counting them all included Staging/Open/Pre-Trip ones. Post-Trip
+    //counts because the trip has run, even if attendance isn't in yet - which is why
+    //User.tripsLead can't be used here: doAttendance only increments it at Complete.
+    //This is deliberately the same set the profile page's Past Trips table lists.
     const count = await TripSignUp.count({
       where: { tripRole: "Leader" },
       include: [{
         model: User,
         where: { firstName, lastName }
+      }, {
+        model: Trip,
+        where: { status: ["Post-Trip", "Complete"] }
       }]
     });
     res.status(200).json({ totalTrips: count });
@@ -566,6 +574,9 @@ publicRouter.get(
       tripName: signup.Trip.tripName,
       date: signup.Trip.plannedDate,
       sentenceDesc: signup.Trip.sentenceDesc,
+      //Additive: the profile page splits Current (Open/Pre-Trip) from Past (Post-Trip/
+      //Complete) on this. Every other field stays as-is - the deployed frontend reads them.
+      status: signup.Trip.status,
       lotteryInfo: "Hosted Trip"
     }));
     res.status(200).json(formattedTrips);

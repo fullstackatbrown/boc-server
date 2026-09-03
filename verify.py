@@ -779,6 +779,96 @@ class ServerTests(unittest.TestCase):
         else:
             self.assertIn("errMessage", r.json())
 
+    # =========================================================================
+    # /public/leader-stats + the status field on /public/leader-trips
+    # =========================================================================
+    # These two back the leader profile page, which shows Current Trips (Open/Pre-Trip),
+    # Past Trips (Post-Trip/Complete) and a "Trips Led" badge. The badge used to count
+    # every tripRole=Leader signup row, so trips that had only been planned inflated it.
+    # The badge is now defined to equal the number of rows in Past Trips, and test_93
+    # asserts exactly that.
+    #
+    # Note on coverage: trip 9 is the seed's Post-Trip trip, but test_35 takes attendance
+    # on it, so by the time these run it is Complete. The Post-Trip arm of the filter is
+    # therefore not exercised by live data here - test_93 asserts the invariant instead,
+    # so it covers Post-Trip automatically whenever such a row exists.
+
+    LED_PAST = ("Post-Trip", "Complete")
+    LED_CURRENT = ("Open", "Pre-Trip")
+
+    def test_93_badge_equals_past_trips_row_count(self):
+        """The contract tying the two routes together: the badge is exactly the number of
+        rows the Past Trips table renders."""
+        trips = get("/public/leader-trips/William/Stone").json()
+        past = [t for t in trips if t["status"] in self.LED_PAST]
+        badge = get("/public/leader-stats/William/Stone").json()["totalTrips"]
+        self.assertEqual(badge, len(past))
+
+    def test_94_badge_ignores_trips_not_yet_run(self):
+        """Staging, Open and Pre-Trip trips are led but haven't happened, so none of them
+        count. Creating a trip proves the Staging case directly."""
+        path = "/public/leader-stats/William/Stone"
+        before = get(path).json()["totalTrips"]
+
+        created = post("/leader/create-trip", {
+            "leaders": [],
+            "tripName": "Leader Stats Planning Trip",
+            "category": "Hiking",
+            "plannedDate": "2026-12-09",
+            "plannedEndDate": None,
+            "maxSize": 10,
+            "class": "B",
+            "priceOverride": None,
+            "sentenceDesc": "Staging trip that must not count toward the badge",
+            "blurb": None,
+            "image": None,
+        })
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(get(path).json()["totalTrips"], before)
+
+        trips = get("/public/leader-trips/William/Stone").json()
+        not_run = [t for t in trips if t["status"] not in self.LED_PAST]
+        self.assertTrue(any(t["status"] == "Staging" for t in not_run))
+        self.assertEqual(get(path).json()["totalTrips"], len(trips) - len(not_run))
+
+    def test_95_leader_trips_carries_status_and_legacy_fields(self):
+        """status is additive. The frontend deploys separately from this server, so the
+        fields the released page already reads must keep coming back untouched."""
+        trips = get("/public/leader-trips/William/Stone").json()
+        self.assertGreater(len(trips), 0)
+        for t in trips:
+            self.assertIn(t["status"], self.LED_PAST + self.LED_CURRENT + ("Staging",))
+            for field in ("tripId", "tripName", "date", "sentenceDesc", "lotteryInfo"):
+                self.assertIn(field, t)
+            self.assertEqual(t["lotteryInfo"], "Hosted Trip")
+
+    def test_96_badge_counts_led_trips_only_not_participation(self):
+        """It is "Trips Led" now. A user who only ever joined trips scores 0.
+        Alan Wang is the subject because test_35 takes attendance on his trip 9
+        signup, so his tripsParticipated is real by the time this runs, and he
+        leads nothing. Ada Lovelace only participates in the Playwright walk."""
+        with as_user("alan_wang2@brown.edu"):
+            profile = get("/user/profile").json()
+        self.assertGreaterEqual(profile["tripsParticipated"], 1)
+        r = get(f"/public/leader-stats/{profile['firstName']}/{profile['lastName']}")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["totalTrips"], 0)
+
+    def test_97_leader_routes_are_public(self):
+        """Logged-out visitors are exactly who the profile pages are for."""
+        with as_user(None):
+            stats = get("/public/leader-stats/William/Stone")
+            trips = get("/public/leader-trips/William/Stone")
+        self.assertEqual(stats.status_code, 200)
+        self.assertEqual(trips.status_code, 200)
+        self.assertIsInstance(stats.json()["totalTrips"], int)
+
+    def test_98_leader_stats_unknown_name_is_zero(self):
+        """An unmatched name is 0, not a 404 or a 500 - the page renders a badge either
+        way, and Firestore names don't always match a User row."""
+        r = get("/public/leader-stats/Nobody/Atall")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["totalTrips"], 0)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

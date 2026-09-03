@@ -98,11 +98,20 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 has been made (although there is no way to enforce this on this server).
 /trip/<tripId>/participate/cancel       POST    Any Role        N/A             Destroys the user's TripSignUp instance for the trip at tripId.
 /trip/<tripId>/participate/pay          POST    Any Role        N/A             Sets paid=true on the user's TripSignUp for the trip at tripId.
-/public/leader-stats/:first/:last       GET     None            N/A             Returns { totalTrips: <count> } representing the total number of trips
-                                                                                the specified leader has led. (:first and :last are firstName/lastName)
-/public/leader-trips/:first/:last       GET     None            N/A             Returns an array of trips led by the specified leader. Each entry
-                                                                                includes tripId, tripName, date, sentenceDesc, and lotteryInfo
-                                                                                (hardcoded to "Hosted Trip"). (:first and :last are firstName/lastName)
+/public/leader-stats/:first/:last       GET     None            N/A             Returns { totalTrips: <count> }: the number of trips the specified user
+                                                                                has LED that have actually run, i.e. signups with tripRole Leader on a
+                                                                                trip whose status is Post-Trip or Complete. Staging/Open/Pre-Trip trips
+                                                                                are excluded (led but not yet run), and trips the user merely took part
+                                                                                in never count. This is by definition the same set /public/leader-trips
+                                                                                yields for the profile page's "Past Trips" table, so the badge and that
+                                                                                table always agree. Returns 0 for an unknown name.
+                                                                                (:first and :last are firstName/lastName)
+/public/leader-trips/:first/:last       GET     None            N/A             Returns an array of every trip led by the specified user, at any status.
+                                                                                Each entry includes tripId, tripName, date, sentenceDesc, status, and
+                                                                                lotteryInfo (hardcoded to "Hosted Trip"). Callers filter on status: the
+                                                                                profile page shows Open/Pre-Trip as "Current Trips" and Post-Trip/
+                                                                                Complete as "Past Trips", and lists Staging trips in neither.
+                                                                                (:first and :last are firstName/lastName)
 /admin/alter-user                       POST    Admin           Role Json       Updates role of target user accordingly. If a leader/admin is demoted, all
                                                                                 trip signups in which they had the role of trip leader are deleted.
 TODO: /trip/<tripId>/lead/quit
