@@ -75,6 +75,7 @@ SUBJ_WAITLISTED = "[ACTION REQUIRED] WAITLISTED - "
 SUBJ_NOT_SELECTED = "Status Update: "
 SUBJ_THANKS = "Thanks for coming on "
 SUBJ_NO_SHOW = "We missed you on "
+SUBJ_CANCELLED = "CANCELLED - "
 
 
 def all_sent_mail():
@@ -591,6 +592,192 @@ class ServerTests(unittest.TestCase):
             for recipient in m["bcc"]:
                 self.assertNotIn(recipient, m["cc"])
                 self.assertNotEqual(recipient, m["to"])
+
+    # =========================================================================
+    # Trip waitlist sizes
+    #
+    # These run after the email tests above (test_60 > test_51 alphabetically),
+    # so the mail they generate is asserted here rather than there.
+    # =========================================================================
+
+    def test_60_lottery_respects_waitlist_size(self):
+        """Trip 10 is Open with maxSize=1, waitlistSize=1 and 3 participants, so
+        the lottery must fill all three buckets."""
+        r = post("/trip/10/lead/lottery")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(len(data["accepted"]), 1)
+        self.assertEqual(len(data["waitlisted"]), 1)
+        self.assertEqual(len(data["notAccepted"]), 1)
+
+    def test_61_lottery_with_zero_waitlist_size_rejects_everyone(self):
+        """Trip 11 has waitlistSize=0, so nobody waits — the 2 losers are rejected."""
+        r = post("/trip/11/lead/lottery")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(len(data["accepted"]), 1)
+        self.assertEqual(len(data["waitlisted"]), 0)
+        self.assertEqual(len(data["notAccepted"]), 2)
+
+    def test_62_not_selected_email_sends_when_waitlist_is_capped(self):
+        """The only coverage the 'not selected' template gets: it cannot fire on a
+        trip with an unlimited waitlist."""
+        messages = sent_mail(SUBJ_NOT_SELECTED + "Capped Waitlist Trip")
+        self.assertEqual(len(messages), 1)
+        m = messages[0]
+        self.assertEqual(len(m["bcc"]), 1)
+        self.assertGreater(len(m["cc"]), 0)
+        self.assertNotIn(m["bcc"][0], m["cc"])
+        #Same markup check test_51 makes, which ran before this mail existed
+        self.assertNotIn("*", m["html"])
+        self.assertNotIn("](", m["html"])
+        self.assertEqual(len(sent_mail(SUBJ_WAITLISTED + "No Waitlist Trip")), 0)
+
+    def test_63_alter_accepts_waitlist_size(self):
+        """waitlistSize is editable while a trip is still Staging/Open."""
+        r = post("/trip/7/lead/alter", {"waitlistSize": 3})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(get("/trip/7").json()["waitlistSize"], 3)
+
+    # =========================================================================
+    # Batch waitlist promotion
+    #
+    # Trip 6 is left in Pre-Trip by test_29 with 2 confirmed waitlisters, and
+    # nothing between there and here touches it. These run after the email
+    # tests (test_47-test_51), which sweep all captured mail.
+    # =========================================================================
+
+    def test_70_lead_add_participant_rejects_a_bad_count(self):
+        """count must be a positive integer, so neither 0 nor a string works."""
+        self.assertEqual(post("/trip/6/lead/add-participant", {"count": 0}).status_code, 422)
+        self.assertEqual(post("/trip/6/lead/add-participant", {"count": "2"}).status_code, 422)
+        self.assertEqual(post("/trip/6/lead/add-participant", {"number": 2}).status_code, 422)
+
+    def test_71_lead_add_participant_batch_clamps_to_waitlist(self):
+        """Trip 6 has 2 waitlisted; asking for 5 promotes both and no more."""
+        r = post("/trip/6/lead/add-participant", {"count": 5})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["success"], 2)
+        self.assertEqual(len(data["added"]), 2)
+
+    def test_72_batch_promotion_sends_one_message_to_everyone_promoted(self):
+        """The batch is one mail with both promoted users bcc'd, and the now-empty
+        waitlist adds nothing further. Promotion shares the 'SELECTED' subject with
+        the lottery, so the trip name is what scopes this."""
+        r = post("/trip/6/lead/add-participant", {"count": 2})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["success"], 0)
+        self.assertEqual(r.json()["added"], [])
+        #test_29's lottery sent the first of these; the batch add sent the second
+        messages = sent_mail(SUBJ_SELECTED + "Small Trip")
+        self.assertEqual(len(messages), 2)
+        self.assertEqual(len(messages[1]["bcc"]), 2)
+
+    # =========================================================================
+    # /trip/<tripId>/lead/cancel
+    #
+    # These create the trips they destroy, so no seeded trip disappears out from
+    # under a later test. They run after the email sweeps (test_50/test_51), so
+    # the cancellation mail is checked here instead.
+    # =========================================================================
+
+    def _make_trip(self, name, **overrides):
+        """Create a trip led by the default user and return its id."""
+        body = {
+            "leaders": [],
+            "tripName": name,
+            "category": "Hiking",
+            "plannedDate": "2027-03-01",
+            "plannedEndDate": None,
+            "maxSize": 15,
+            "class": "Z",
+            "priceOverride": None,
+            "sentenceDesc": "Created by verify.py cancellation tests",
+            "blurb": None,
+            "image": None,
+        }
+        body.update(overrides)
+        r = post("/leader/create-trip", body)
+        self.assertEqual(r.status_code, 200)
+        return r.json()["id"]
+
+    def test_80_cancel_staging_trip_deletes_it(self):
+        """A Staging trip has no participants, so this cancels silently."""
+        trip_id = self._make_trip("Cancel Me While Staging")
+        r = post(f"/trip/{trip_id}/lead/cancel")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(get(f"/trip/{trip_id}").status_code, 404)
+        self.assertEqual(len(sent_mail(SUBJ_CANCELLED + "Cancel Me While Staging")), 0)
+
+    def test_81_cancel_after_pre_trip_returns_403(self):
+        """Trip 9 was taken to Complete by test_35 and can no longer be cancelled."""
+        r = post("/trip/9/lead/cancel")
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(get("/trip/9").status_code, 200)
+
+    def test_82_cancel_open_trip_emails_everyone_signed_up(self):
+        """Everyone with a signup on an Open trip is told, in one message."""
+        trip_id = self._make_trip("Cancel Me While Open", blurb="A trip to cancel")
+        self.assertEqual(post(f"/trip/{trip_id}/lead/open").status_code, 200)
+        for email in ["ada.lovelace@brown.edu", "grace.hopper@brown.edu"]:
+            with as_user(email):
+                self.assertEqual(post(f"/trip/{trip_id}/signup").status_code, 200)
+        r = post(f"/trip/{trip_id}/lead/cancel")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(get(f"/trip/{trip_id}").status_code, 404)
+        messages = sent_mail(SUBJ_CANCELLED + "Cancel Me While Open")
+        self.assertEqual(len(messages), 1)
+        m = messages[0]
+        self.assertEqual(sorted(m["bcc"]),
+                         ["ada.lovelace@brown.edu", "grace.hopper@brown.edu"])
+        #The privacy and markup checks test_50/test_51 make, which both ran before
+        #this mail existed
+        self.assertGreater(len(m["cc"]), 0)
+        self.assertEqual(m["replyTo"], ", ".join(m["cc"]))
+        for recipient in m["bcc"]:
+            self.assertNotIn(recipient, m["cc"])
+        self.assertNotIn("*", m["html"])
+        self.assertNotIn("](", m["html"])
+        #A cancellation must never link to the trip page - the trip is gone
+        self.assertNotIn("/trips/view", m["html"])
+
+    def test_83_cancel_as_non_leader_returns_401(self):
+        """Deliberately a failure case, so trip 8 survives for later tests."""
+        with as_user("ada.lovelace@brown.edu"):
+            r = post("/trip/8/lead/cancel")
+        self.assertEqual(r.status_code, 401)
+        self.assertEqual(get("/trip/8").status_code, 200)
+
+    # =========================================================================
+    # /leader/firebase-token
+    # =========================================================================
+    # The service account key lives only on the production VM, so a real token cannot be
+    # minted here. What these assert is the half that matters locally: who is allowed to
+    # ask, and that a server without a key degrades instead of erroring out.
+
+    def test_90_firebase_token_requires_login(self):
+        with as_user(None):
+            r = get("/leader/firebase-token")
+        self.assertEqual(r.status_code, 401)
+
+    def test_91_firebase_token_rejects_participants(self):
+        """Leader+ only - if any signed-in student could mint one, the Firebase rules
+        this exists to enable would be no better than allowing every write."""
+        with as_user("ada.lovelace@brown.edu"):
+            r = get("/leader/firebase-token")
+        self.assertEqual(r.status_code, 401)
+
+    def test_92_firebase_token_for_leader(self):
+        """200 with a token where a key is installed, 503 where it isn't. Never a 500:
+        a missing key must not look like a broken server."""
+        r = get("/leader/firebase-token")
+        self.assertIn(r.status_code, (200, 503))
+        if r.status_code == 200:
+            self.assertIsInstance(r.json()["token"], str)
+            self.assertGreater(len(r.json()["token"]), 0)
+        else:
+            self.assertIn("errMessage", r.json())
 
 
 if __name__ == "__main__":

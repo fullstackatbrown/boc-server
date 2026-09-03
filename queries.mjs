@@ -307,7 +307,9 @@ async function taskUpdate(trip, taskJson) {
   return trip.save();
 }
 
-let tripUpdateFields = [...tripCreationFields.slice(1), "newLeader"];
+//waitlistSize is absent from tripCreationFields (it is optional, and hasFields demands
+//every entry), but it is still alterable
+let tripUpdateFields = [...tripCreationFields.slice(1), "waitlistSize", "newLeader"];
 async function tripUpdate(trip, alterJson) {
   //Sanitize
   if (!validFields(alterJson, tripUpdateFields))
@@ -400,9 +402,8 @@ async function runLottery(trip) {
   lotteryPairs.sort((pair1, pair2) => pair2[0] - pair1[0]);
   let greatest_constraint = Math.min(trip.maxSize, lotteryPairs.length);
   let winnaWinnas = lotteryPairs.splice(0, greatest_constraint); //Leftovers are losers
-  // NOTE: currently, we are putting ALL non-selected participants on the waitlist
-  let new_greatest_constraint = lotteryPairs.length; //Math.min(trip.maxSize, lotteryPairs.length);
-  let waitlisters = lotteryPairs.splice(0, new_greatest_constraint); 
+  //A null waitlistSize means unlimited - everyone not selected waits
+  let waitlisters = lotteryPairs.splice(0, trip.waitlistSize ?? lotteryPairs.length);
   let wompWomps = lotteryPairs.splice(0, lotteryPairs.length); //For readability
   //Handle lottery consequences
   let winnaEmails = [];
@@ -449,23 +450,27 @@ async function runLottery(trip) {
   };
 }
 
-async function addParticipant(trip) {
+const addJsonFields = ["count"];
+async function addParticipant(trip, addJson = {}) {
+  if (!validFields(addJson, addJsonFields)) throw new InvalidDataError("Request body may only have the field 'count'");
+  const count = addJson.count ?? 1; //No count means the old single-promotion behavior
+  if (!Number.isInteger(count) || count < 1) throw new InvalidDataError("'count' must be a positive integer");
   if (trip.status != "Pre-Trip") throw new IllegalOperationError("May only pull participants from the waitlist when trip is in Pre-Trip phase");
   const waitlistedSignups = await trip.getTripSignUps({
     where: { status: "Waitlisted" },
-    include: User, //So the promoted user's email is on hand without a second query
+    include: User, //So the promoted users' emails are on hand without a second query
   })
-  if (waitlistedSignups.length == 0) return { success : 0, added: [] }; //Need to return object to indicate whether or not there was a participant to add
-  const confirmedSignups = waitlistedSignups.filter((ws) => ws.confirmed);
-  //Pool to draw from: confirmed waitlisters get priority, otherwise anyone waitlisted
-  const pool = confirmedSignups.length != 0 ? confirmedSignups : waitlistedSignups;
-  //NOTE: Math.random() * pool.length, NOT (pool.length - 1) - the latter can never
-  //return the last element of the pool
-  const selectedSignup = pool[Math.floor(Math.random() * pool.length)];
-  selectedSignup.status = "Selected";
-  await selectedSignup.save();
-  //added is a list so that a future batch add reports its promotions the same way
-  return { success : 1, added: [selectedSignup.User.email] };
+  //Confirmed waitlisters get priority, shuffled within each tier so choice stays random
+  const shuffle = (l) => l.map((s) => [Math.random(), s]).sort((a, b) => a[0] - b[0]).map((p) => p[1]);
+  const promoted = shuffle(waitlistedSignups.filter((ws) => ws.confirmed))
+    .concat(shuffle(waitlistedSignups.filter((ws) => !ws.confirmed)))
+    .slice(0, count); //Clamps: fewer than requested when the waitlist runs short
+  await Promise.all(promoted.map((ps) => {
+    ps.status = "Selected";
+    return ps.save();
+  }));
+  //success is just added.length, kept so older frontends can still read it
+  return { success : promoted.length, added: promoted.map((ps) => ps.User.email) };
 }
 
 const removeJsonFields = ["email"];
@@ -516,6 +521,44 @@ async function runTrip(trip) {
   trip.status = "Post-Trip";
   proms.push(trip.save());
   return Promise.all(proms);
+}
+
+//Cancels a trip outright, destroying it and every signup on it. Recipient lists are
+//gathered BEFORE the delete, since afterwards there is nothing left to query.
+async function cancelTrip(trip) {
+  if (!["Staging", "Open", "Pre-Trip"].includes(trip.status))
+    throw new IllegalOperationError(
+      "May only cancel a trip while it is in Staging, Open, or Pre-Trip status",
+    );
+  //Staging trips have no participants, so this comes back empty and nobody is mailed.
+  //Not Selected participants are left out - they have already been told they're off.
+  const participantSignups = await trip.getTripSignUps({
+    where: trip.status == "Pre-Trip"
+      ? { tripRole: "Participant", status: { [Op.in]: ["Selected", "Waitlisted"] } }
+      : { tripRole: "Participant" },
+    include: User,
+  });
+  const leaders = await getLeaderEmails(trip);
+  const recipients = participantSignups.map((signup) => signup.User.email);
+  const trans = await sequelize.transaction();
+  try {
+    //DESIGN CHOICE: same rule runTrip uses - only those who confirmed interest get the
+    //lottery buff back, since the cancellation cost them a spot they'd committed to
+    for (const signup of participantSignups.filter((s) => s.confirmed)) {
+      signup.User.lotteryWeight += REJECTIONBUF;
+      await signup.User.save({ transaction: trans });
+    }
+    //Destroyed sequentially - concurrent destroys on one trip intermittently fail with
+    //MariaDB 1020 (see destroyer.mjs and server_jobs.mjs, which hit the same thing)
+    const signups = await trip.getTripSignUps({ transaction: trans });
+    for (const signup of signups) await signup.destroy({ transaction: trans });
+    await trip.destroy({ transaction: trans });
+    await trans.commit();
+  } catch (err) {
+    await trans.rollback();
+    throw err;
+  }
+  return { leaders, recipients };
 }
 
 async function attendAdditionalParticipants(additionalParticipantEmails, selectedParticipantEmails, trip) {
@@ -719,6 +762,7 @@ export default {
   addParticipant,
   removeParticipant,
   runTrip,
+  cancelTrip,
   doAttendance,
   tripSignup,
   isSignedUp,

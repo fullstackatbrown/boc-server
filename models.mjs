@@ -118,6 +118,10 @@ Trip.init(
             type: DataTypes.INTEGER,
             allowNull: false,
         },
+        waitlistSize: {
+            type: DataTypes.INTEGER,
+            validate: { min: 0 }, //null means unlimited - everyone not selected waits
+        },
         class: {
             type: DataTypes.STRING(1),
             validate: { //Ensures only class or priceOverride is defined, not both

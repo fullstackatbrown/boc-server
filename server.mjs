@@ -28,6 +28,7 @@ const {
   addParticipant,
   removeParticipant,
   runLottery,
+  cancelTrip,
   doAttendance,
   tripSignup,
   isSignedUp,
@@ -42,7 +43,8 @@ import jobs from "./server_jobs.mjs";
 import {
   notifyLottery,
   notifyWaitlistPromotion,
-  notifyAttendance
+  notifyAttendance,
+  notifyTripCancellation
 } from "./email-client/notifications.mjs";
 import { MODE as MAIL_MODE } from "./email-client/mailer.mjs";
 
@@ -50,6 +52,31 @@ import https from "https";
 import fs from "fs";
 
 import axios from "axios";
+
+import { initializeApp, cert } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+
+//
+// FIREBASE CUSTOM TOKENS
+//
+// The site authenticates with Google through next-auth, not Firebase Auth, so the browser
+// carries no Firebase identity and request.auth is null in Firestore/Storage rules. The
+// /leader/firebase-token route below mints a token the frontend trades for one, which is
+// what lets those rules name a real BOC leader instead of allowing every write.
+//
+// The service account key is absent on development machines and must never be a hard
+// dependency: a missing key disables that one route and nothing else.
+const FIREBASE_KEY_PATH = process.env.FIREBASE_KEY_PATH || "./firebase-auth.json";
+let firebaseAuth = null;
+let firebaseKeyProblem = null;
+try {
+  const key = JSON.parse(fs.readFileSync(FIREBASE_KEY_PATH, "utf8"));
+  firebaseAuth = getAuth(initializeApp({ credential: cert(key) }));
+} catch (err) {
+  //Deliberately does not log err: a JSON.parse failure can quote the offending text, and
+  //that text is a private key. The path and whether it was there is all an operator needs.
+  firebaseKeyProblem = err.code === "ENOENT" ? "not found" : "unreadable or malformed";
+}
 
 //
 //MIDDLEWARE
@@ -366,7 +393,7 @@ tripRouter.post(
 tripRouter.post(
   "/lead/add-participant",
   asyncHandler(async (req, res) => {
-    const result = await addParticipant(req.Trip);
+    const result = await addParticipant(req.Trip, req.body);
     await notifyWaitlistPromotion(req.Trip, result.added);
     res.status(200).json(result);
   })
@@ -382,6 +409,15 @@ tripRouter.post(
   asyncHandler(async (req, res) => {
     const outcome = await doAttendance(req.Trip, req.body);
     await notifyAttendance(req.Trip, outcome);
+    res.sendStatus(200);
+  })
+);
+tripRouter.post(
+  "/lead/cancel",
+  asyncHandler(async (req, res) => {
+    //req.Trip stays readable in memory after the delete, so the email can still name it
+    const outcome = await cancelTrip(req.Trip);
+    await notifyTripCancellation(req.Trip, outcome);
     res.sendStatus(200);
   })
 );
@@ -455,6 +491,26 @@ leaderRouter.post(
   "/create-trip",
   asyncHandler(async (req, res) => {
     res.status(200).json(await createTrip(req.User, req.body));
+  })
+);
+
+leaderRouter.get(
+  "/firebase-token",
+  asyncHandler(async (req, res) => {
+    if (!firebaseAuth) {
+      //503 rather than a thrown error: the caller is authorized and did nothing wrong,
+      //the capability just isn't configured here. The frontend can tell it from a 401.
+      res.status(503).json({
+        errMessage: "Firebase token minting is not configured on this server"
+      });
+      return;
+    }
+    //uid is the BOC User id, so Storage rules can scope a path per leader; the email
+    //claim is what the Firestore team rule matches against a profile document.
+    const token = await firebaseAuth.createCustomToken(String(req.User.id), {
+      email: req.User.email
+    });
+    res.status(200).json({ token });
   })
 );
 
@@ -536,7 +592,7 @@ app.use(async (err, _req, res, _next) => {
         "SQL operation failure. Possible sources: broken unique constraint, data too long, or data of wrong type"
     });
   } else if (err instanceof AuthError) {
-    res.status(401).json({ errMesssage: `${err}` });
+    res.status(401).json({ errMessage: `${err}` });
   } else if (err instanceof NonexistenceError) {
     res.status(404).json({ errMessage: `${err}` });
   } else if (err instanceof InvalidDataError) {
@@ -588,6 +644,15 @@ app.listen(PORT, async () => {
       "TEST IDENTITY BYPASS IS ACTIVE - any request may impersonate any user via an " +
       "'e2e:<email>' bearer token. This must NEVER be enabled in production. " +
       "Unset DEVELOPING (or set NODE_ENV=production) to disable.";
+    console.warn(`\n!!! ${warning} !!!\n`);
+    logger.log(`STARTUP WARNING: ${warning}`);
+  }
+  if (!firebaseAuth) {
+    const warning =
+      `Firebase service account key ${firebaseKeyProblem} at ${FIREBASE_KEY_PATH} - ` +
+      "/leader/firebase-token will return 503, so leaders cannot sign in to Firebase " +
+      "and profile editing fails against any rule requiring request.auth. " +
+      "Set FIREBASE_KEY_PATH or place the key at that path.";
     console.warn(`\n!!! ${warning} !!!\n`);
     logger.log(`STARTUP WARNING: ${warning}`);
   }

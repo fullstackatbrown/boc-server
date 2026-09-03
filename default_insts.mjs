@@ -23,26 +23,33 @@ const { User, Trip, TripSignUp, TripClass } = models;
         updateOnDuplicate: ['link', 'price'],
     });
 
-    //Set up test examples of each other class
+    //Set up test examples of each other class. Ids are pinned, as the trips below are:
+    //these upserts all run concurrently, so without them MariaDB assigns auto-increment
+    //ids in whatever order the inserts land, and the userId references further down (plus
+    //verify.py's assumption that user 1 is William) break on a reshuffle.
     let user = User.upsert({
+        id: 1,
         firstName: 'William',
         lastName: 'Stone',
         email: 'william_l_stone@brown.edu',
         role: 'Admin',
     });
     let user2 = User.upsert({
+        id: 2,
         firstName: 'Alan',
         lastName: 'Wang',
         email: 'alan_wang2@brown.edu',
         role: 'Admin',
     });
     let user3 = User.upsert({
+        id: 3,
         firstName: 'Test',
         lastName: 'Dude',
         email: 'test@du.de',
         role: 'Participant',
     });
     let user4 = User.upsert({
+        id: 4,
         firstName: 'Test',
         lastName: 'Dude2',
         email: 'test2@du.de',
@@ -54,36 +61,42 @@ const { User, Trip, TripSignUp, TripClass } = models;
     //waitlist, removal and attendance paths, so there are deliberately more here than any
     //single test uses. Names are real so participant lists render legibly.
     let user5 = User.upsert({
+        id: 5,
         firstName: 'Ada',
         lastName: 'Lovelace',
         email: 'ada.lovelace@brown.edu',
         role: 'Participant',
     });
     let user6 = User.upsert({
+        id: 6,
         firstName: 'Grace',
         lastName: 'Hopper',
         email: 'grace.hopper@brown.edu',
         role: 'Participant',
     });
     let user7 = User.upsert({
+        id: 7,
         firstName: 'Alan',
         lastName: 'Turing',
         email: 'alan.turing@brown.edu',
         role: 'Participant',
     });
     let user8 = User.upsert({
+        id: 8,
         firstName: 'Katherine',
         lastName: 'Johnson',
         email: 'katherine.johnson@brown.edu',
         role: 'Participant',
     });
     let user9 = User.upsert({
+        id: 9,
         firstName: 'Barbara',
         lastName: 'Liskov',
         email: 'barbara.liskov@brown.edu',
         role: 'Participant',
     });
     let user10 = User.upsert({
+        id: 10,
         firstName: 'Donald',
         lastName: 'Knuth',
         email: 'donald.knuth@brown.edu',
@@ -92,6 +105,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
     //RISD account, and the one deliberately left off every trip - used to test taking
     //attendance for somebody who never signed up in the first place
     let user11 = User.upsert({
+        id: 11,
         firstName: 'Margaret',
         lastName: 'Hamilton',
         email: 'margaret.hamilton@risd.edu',
@@ -100,6 +114,7 @@ const { User, Trip, TripSignUp, TripClass } = models;
     //A plain Leader (not an Admin) - every other leader in this seed is an Admin, which
     //means leader-vs-admin behaviour would otherwise never get exercised
     let user12 = User.upsert({
+        id: 12,
         firstName: 'Radia',
         lastName: 'Perlman',
         email: 'radia.perlman@brown.edu',
@@ -208,8 +223,32 @@ const { User, Trip, TripSignUp, TripClass } = models;
         class: 'Z',
         sentenceDesc: 'A past trip for integration testing',
     })
+    // trip10: Open, waitlist capped at 1 — lottery must fill all three buckets
+    let trip10 = Trip.upsert({
+        id: 10,
+        tripName: 'Capped Waitlist Trip',
+        plannedDate: new Date("2026-11-05"),
+        category: 'Climbing',
+        status: 'Open',
+        maxSize: 1,
+        waitlistSize: 1,
+        class: 'Z',
+        sentenceDesc: 'A trip whose waitlist only holds one person',
+    })
+    // trip11: Open, waitlist disabled — everyone not selected is rejected outright
+    let trip11 = Trip.upsert({
+        id: 11,
+        tripName: 'No Waitlist Trip',
+        plannedDate: new Date("2026-11-06"),
+        category: 'Running',
+        status: 'Open',
+        maxSize: 1,
+        waitlistSize: 0,
+        class: 'Z',
+        sentenceDesc: 'A trip with no waitlist at all',
+    })
     await Promise.all([user, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12,
-        trip, trip2, trip3, trip4, trip5, trip6, trip7, trip8, trip9]);
+        trip, trip2, trip3, trip4, trip5, trip6, trip7, trip8, trip9, trip10, trip11]);
 
     let ts1 = TripSignUp.create({
         userId: 1,
@@ -245,6 +284,18 @@ const { User, Trip, TripSignUp, TripClass } = models;
     let ts10 = TripSignUp.create({ userId: 2, tripId: 9, tripRole: "Participant", status: "Selected",   confirmed: 1, paid: 1 });
     let ts11 = TripSignUp.create({ userId: 1, tripId: 3, tripRole: "Participant", status: "Signed Up" });
     await Promise.all([ts5, ts6, ts7, ts8, ts9, ts10, ts11]);
+
+    // Signups for the waitlist-size trips: 3 participants each, so a maxSize of 1
+    // leaves 2 for the waitlist cap to split
+    let ts12 = TripSignUp.create({ userId: 1, tripId: 10, tripRole: "Leader" });
+    let ts13 = TripSignUp.create({ userId: 5, tripId: 10, tripRole: "Participant" });
+    let ts14 = TripSignUp.create({ userId: 6, tripId: 10, tripRole: "Participant" });
+    let ts15 = TripSignUp.create({ userId: 7, tripId: 10, tripRole: "Participant" });
+    let ts16 = TripSignUp.create({ userId: 1, tripId: 11, tripRole: "Leader" });
+    let ts17 = TripSignUp.create({ userId: 8, tripId: 11, tripRole: "Participant" });
+    let ts18 = TripSignUp.create({ userId: 9, tripId: 11, tripRole: "Participant" });
+    let ts19 = TripSignUp.create({ userId: 10, tripId: 11, tripRole: "Participant" });
+    await Promise.all([ts12, ts13, ts14, ts15, ts16, ts17, ts18, ts19]);
 
     //Close connection so as not to leave hanging connections
     sequelize.close();

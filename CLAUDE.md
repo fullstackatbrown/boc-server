@@ -45,7 +45,7 @@ Annotated Abbreviated File Tree:
 | - route_descs.txt - Defines the purpose and behavior of each route the web server responds to; treat this as the overriding source of truth for *intended* web server behavior. See "Known route_descs.txt drift" below for the places it currently disagrees with the code.
 | - database_diagram.sql, pages_and_reqs.txt - both stale; models.mjs is the real schema
 | OTHER FILES:
-| - migrations/ - Directory where .sql database migration files are stored (currently empty)
+| - migrations/ - Directory where .sql database migration files are stored
 | - past_semesters/ - Directory where semester database backups are written by server_jobs.mjs
 | - listserv-additions.txt - append-only file of emails collected by /user/listserv-add
 
@@ -54,7 +54,7 @@ Annotated Abbreviated File Tree:
 - `TripSignUp` rows carry `tripRole` of either `Leader` or `Participant`. A `beforeValidate` hook in models.mjs nulls out `status`, `needPaperwork`, `confirmed`, and `paid` for Leader rows — so leader signups have null participant fields by construction.
 - A Trip's price comes from *either* `class` (a letter A-J, or Z for free, joining to TripClass) *or* `priceOverride` — never both, never neither. This is enforced by a model-level validator.
 - `lotteryWeight` is never sent to the client. `getBasicUserData`/`getUserData` strip both `id` and `lotteryWeight`. Non-selected participants get `+REJECTIONBUF` (0.25) weight; selected/attended participants get reset to 1; no-shows get `-NOSHOWPENALTY` (0.25).
-- The lottery currently places *all* non-selected signups on the waitlist, so the `notAccepted` list it returns is always empty.
+- A Trip's `waitlistSize` caps how many non-selected signups the lottery waitlists; the rest become Not Selected. It is nullable and optional, and **null means unlimited** — so a trip created without one behaves exactly as every trip did before the field existed, waitlisting everyone and returning an empty `notAccepted`. Nothing back-fills the waitlist afterwards: promoting off a capped waitlist shrinks it permanently rather than pulling Not Selected participants up.
 - `getTrips` (the public `/trips` route) filters to the current semester window (Jan-May or Sep-Dec) and returns `[]` during summer months. This surprises people; it is deliberate.
 
 ## Codebase Modifications
@@ -143,8 +143,8 @@ is only what the code and that file can't tell you.
 - `FRONTEND_URL` builds links back into the site, and notifications.mjs hardcodes
   **project-boc's route shape** (`/trips/view?id=<tripId>`). A rename there silently sends
   students dead links; nothing typechecks this.
-- The "not selected" template is **never sent today** (see the lottery note under Domain
-  Model Notes). It goes live with the planned waitlist-size feature — verify it then.
+- The "not selected" template only goes out for trips with a `waitlistSize` set (see the
+  lottery note under Domain Model Notes); trips without one still waitlist everybody.
 - **All copy lives in notifications.mjs**, and rendering machinery must stay out of that
   file — the club edits it. Templates are plain text with exactly two pieces of markup,
   `*bold*` and `[label](url)`; blank lines separate paragraphs and a single newline is a
@@ -162,14 +162,14 @@ is only what the code and that file can't tell you.
 - To preview without sending, leave `MAIL_TRANSPORT` unset and read `sent_mail.jsonl`. To
   send for real, `MAIL_TRANSPORT=smtp node test-helpers/smtp-check.mjs` puts all six
   templates in the service account's own inbox and can never reach a student. **verify.py
-  only exercises four of the six** — "not selected" and "no show" never fire in the seeded
-  flow, so check those two by hand after editing them.
+  only exercises five of the six** — "no show" never fires in the seeded flow, so check
+  that one by hand after editing it.
 
 ## Known route_descs.txt drift
 route_descs.txt is the source of truth for *intent*, but it is not perfectly in sync with the code. Currently:
 - `/admin/alter-user` is documented but **not implemented**. The backing function `alterRole` exists in queries.mjs but is unexported, unrouted, and contains a bug (it returns `userToElevate.save()` while the variable is named `userToAlter`).
 - `/trip/<tripId>/lead/all-possible-participants` **is** implemented and is actively used by the frontend's attendance form, but has no entry in route_descs.txt.
-- Entries prefixed TODO (`/trip/<tripId>/lead/cancel`, `/lead/quit`, `/cancel`) are not implemented.
+- Entries prefixed TODO (`/lead/quit`, `/cancel`) are not implemented.
 When you touch either of these, fix the drift rather than working around it.
 
 ## Claude Best Practice Reminders

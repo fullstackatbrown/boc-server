@@ -33,6 +33,10 @@ log.txt
 .env
 .env*.local
 
+# Firebase Admin service account key - mints tokens for ANY identity in the project,
+# so it is strictly more sensitive than the public client config in the frontend
+firebase-auth.json
+
 # vercel
 .vercel
 

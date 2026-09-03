@@ -33,6 +33,13 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 weren't selected (as long as they still have a signup instance).
 /leader/create-trip                     POST    Leader+         Creation Json   Creates a private (Staging) trip using the data in the request body
                                                                                 and returns the created trip JSON (status 200).
+/leader/firebase-token                  GET     Leader+         N/A             Returns { token: <firebase_custom_token> } for the authenticated leader. The
+                                                                                frontend trades this for a Firebase session via signInWithCustomToken, so
+                                                                                Firestore/Storage rules can identify a real leader (the site logs in with
+                                                                                Google via next-auth, not Firebase Auth, so request.auth is otherwise null).
+                                                                                The token's Firebase uid is the caller's User id, and it carries an `email`
+                                                                                custom claim holding their email. Returns 503 if this server has no Firebase
+                                                                                service account key (path from FIREBASE_KEY_PATH, default ./firebase-auth.json).
 /trip/<tripId>/lead/task                POST    Trip Leader     Task Json       Modifies planningChecklist for trip at <tripId> accordingly. If all tasks
                                                                                 are marked complete, sets trip status to Complete. Note: "Lottery" and
                                                                                 "Attendance" are automated tasks whose complete field cannot be manually
@@ -48,8 +55,9 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 accordingly, updating lottery weights as well. Sets status to Pre-Trip
                                                                                 for the trip. Sends back a list of emails of accepted participants, one
                                                                                 of waitlisted participants, and a list of emails of rejected participants.
-                                                                                Currently, ALL non-selected participants are placed on the waitlist
-                                                                                (the notAccepted list will always be empty). Selected participants'
+                                                                                Non-selected participants fill the waitlist up to the trip's waitlistSize
+                                                                                and the rest are rejected; a null waitlistSize means every non-selected
+                                                                                participant is waitlisted. Selected participants'
                                                                                 elevated lotteryWeights are reset to 1; non-selected participants
                                                                                 receive a lotteryWeight bonus. May only be performed if trip status
                                                                                 is currently Open. Emails each non-empty group of participants (see
@@ -57,12 +65,13 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
 /trip/<tripId>/lead/participants        GET     Trip Leader     N/A             Returns a list of all Participant-role signups on a trip regardless of
                                                                                 signup status. Each entry includes firstName, lastName, email, status,
                                                                                 confirmed, and paid.
-/trip/<tripId>/lead/add-participant     POST    Trip Leader     N/A             Adds a participant from the waitlist to the list of selected participants,
-                                                                                prioritizing confirmed participants. Will return a JSON object with a single
-                                                                                field "added", a list of the emails promoted (a list so a batch add fits the
-                                                                                same shape), plus "success", which is 0 when the waitlist was empty and 1
-                                                                                otherwise. "success" is legacy - it is just added.length, and a batch add
-                                                                                will make it ambiguous; prefer "added".
+/trip/<tripId>/lead/add-participant     POST    Trip Leader     Add Json        Promotes up to "count" participants off the waitlist to Selected. Confirmed
+                                                                                waitlisters are promoted first, and choice within a tier is random. An
+                                                                                absent body (or absent "count") promotes exactly one, so older frontends
+                                                                                keep working. Clamps silently: a count larger than the waitlist promotes
+                                                                                everyone left and no more. Returns a JSON object with "added", the list
+                                                                                of emails promoted, plus "success", which is legacy - it is just
+                                                                                added.length; prefer "added".
                                                                                 May only be performed if trip status is currently Pre-Trip. Emails everyone
                                                                                 in "added" (see EMAIL NOTIFICATIONS below).
 /trip/<tripId>/lead/remove-participant  POST    Trip Leader     Remove Json     Removes the participant specified by email from the trip (takes their Selected
@@ -75,6 +84,13 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 May only be performed if trip status is currently Post-Trip and current
                                                                                 datetime is on or after the trip's plannedDate. Emails attendees and
                                                                                 no-shows separately (see EMAIL NOTIFICATIONS below).
+/trip/<tripId>/lead/cancel              POST    Trip Leader     N/A             Cancels the trip at <tripId>, permanently deleting it and every signup on
+                                                                                it. May only be performed if trip status is currently Staging, Open, or
+                                                                                Pre-Trip (returns 403 otherwise). Participants who had confirmed their
+                                                                                spot/interest receive a lotteryWeight bonus, since the cancellation cost
+                                                                                them a spot they had committed to. Emails the affected participants (see
+                                                                                EMAIL NOTIFICATIONS below). Note that this removes the trip from the
+                                                                                leaders' public trip history as well.
 /trip/<tripId>/signup                   POST    Any Role        N/A             Creates a new TripSignUp instance for the user on the trip at <tripId>.
                                                                                 May only be performed if the trip has Open status.
 /trip/<tripId>/participate/confirm      POST    Any Role        N/A             Sets confirmed=true on the user's TripSignUp for the trip at tripId.
@@ -89,7 +105,6 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 (hardcoded to "Hosted Trip"). (:first and :last are firstName/lastName)
 /admin/alter-user                       POST    Admin           Role Json       Updates role of target user accordingly. If a leader/admin is demoted, all
                                                                                 trip signups in which they had the role of trip leader are deleted.
-TODO: /trip/<tripId>/lead/cancel
 TODO: /trip/<tripId>/lead/quit
 TODO: /trip/<tripId>/cancel
 
@@ -107,6 +122,7 @@ Creation Json:
     plannedDate: <date_obj>, //Specific up to the day of the trip (but not necessarily the hour)
     plannedEndDate: <date_obj>, //Can be null; use for multi-day trips
     maxSize: <max_num_participants>,
+    waitlistSize: <max_num_waitlisted>, //OPTIONAL (may be omitted entirely); null or absent means an unlimited waitlist
     class: <price_class>, //Options include characters A-J (see marketplace) plus Z (for free trips)
     priceOverride: <price_float>, //Only class or priceOverride should be defined, not both (but exactly one must be)
     sentenceDesc: <sentence_long_description>, //Can be null
@@ -121,6 +137,11 @@ Task Json:
     complete: <boolean>,
 }
 
+Add Json:
+{
+    count: <positive_integer>, //Optional; omitted (or an empty body) means 1
+}
+
 Remove Json:
 {
     email: <participant_email>,
@@ -128,7 +149,7 @@ Remove Json:
 
 Alter Json:
 {
-    <any_trip_creation_field>, //Except leaders (all fields from Creation Json minus leaders are valid)
+    <any_trip_creation_field>, //Except leaders (all fields from Creation Json minus leaders are valid, waitlistSize included)
     newLeader: <leader_email>, //Optional; adds one new leader to the trip (different from leaders[] in creation)
     //Multiple fields may be included, but none are required
 }
@@ -158,15 +179,21 @@ addresses. A group with no recipients is skipped rather than sent empty.
 
 /trip/<tripId>/lead/lottery          Selected -> "You're on the trip"
                                      Waitlisted -> "You're on the waitlist"
-                                     Not Selected -> "Lottery results" (currently never
-                                     sent, since the lottery waitlists everyone it does
-                                     not select; goes live with trip waitlist sizes)
+                                     Not Selected -> "Lottery results" (only sent when the
+                                     trip's waitlistSize is set; a null waitlistSize
+                                     waitlists everyone and leaves this group empty)
 /trip/<tripId>/lead/add-participant  Everyone in "added" -> "A spot opened up"
 /trip/<tripId>/lead/attendance       Attended (including additionalParticipants) ->
                                      "Thanks for coming"
                                      No Show -> "We missed you"
                                      Excused Absence -> nothing; they cancelled ahead of
                                      time and their signup is deleted
+/trip/<tripId>/lead/cancel           Open: everyone signed up -> "Trip cancelled"
+                                     Pre-Trip: Selected and Waitlisted only -> same
+                                     (Not Selected have already been told they're off)
+                                     Staging: nobody, since there are no participants
+                                     Links to the trips page, never the trip's own page,
+                                     which no longer exists by the time mail goes out
 
 Sending never fails a request: mailer.mjs logs and swallows errors, because each of these
 routes has already committed an irreversible trip transition by the time mail goes out.

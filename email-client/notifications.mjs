@@ -81,6 +81,19 @@ If you think this is a mistake, just reply to this email - the trip's leaders wi
 ${SIGNOFF}`,
 });
 
+//Deliberately links to the trips page, not the trip page: by the time this sends, the
+//trip has been deleted and its page would 404.
+const cancelled = (trip) => ({
+  subject: `CANCELLED - ${trip.tripName}`,
+  text: `We're sorry to say that ${trip.tripName} on ${when(trip)} has been *cancelled* and will not be running.
+
+You don't need to do anything - your spot has been released. If you already paid for this trip, just reply to this email and the trip's leaders will sort out a refund with you.
+
+We're sorry to miss out on this one with you. Everything else we have coming up is on our [trips page](${SITE}/trips), and we hope to see you on one of those soon.
+
+${SIGNOFF}`,
+});
+
 //One message per recipient group. Participants are BCC'd so they never see each
 //other's addresses - which also keeps a no-show from seeing who else no-showed.
 //Leaders are CC'd so they see exactly what their participants got, and are Reply-To
@@ -109,6 +122,12 @@ export async function notifyLottery(trip, { accepted, waitlisted: waited, notAcc
 export async function notifyWaitlistPromotion(trip, emails) {
   if (emails.length === 0) return; //Nothing promoted, so no leader lookup needed
   await send(await getLeaderEmails(trip), emails, promoted(trip));
+}
+
+//Takes the leader list rather than looking it up: the trip and its signups are already
+//gone by the time this runs, so getLeaderEmails would come back empty.
+export async function notifyTripCancellation(trip, { leaders, recipients }) {
+  await send(leaders, recipients, cancelled(trip));
 }
 
 //Excused absences appear in neither list: they cancelled ahead of time and are
