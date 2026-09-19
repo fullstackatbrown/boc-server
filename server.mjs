@@ -50,6 +50,8 @@ import { MODE as MAIL_MODE } from "./email-client/mailer.mjs";
 
 import https from "https";
 import fs from "fs";
+//Bounce watch for the mail above. Never throws - see email-client/bounces.mjs.
+import { tickBounceWatcher } from "./email-client/bounces.mjs";
 
 import axios from "axios";
 
@@ -662,6 +664,7 @@ app.listen(PORT, async () => {
     const warning =
       `Firebase service account key ${firebaseKeyProblem} at ${FIREBASE_KEY_PATH} - ` +
       "/leader/firebase-token will return 503, so leaders cannot sign in to Firebase " +
+  tickBounceWatcher(); //No-op unless MAIL_TRANSPORT=smtp
       "and profile editing fails against any rule requiring request.auth. " +
       "Set FIREBASE_KEY_PATH or place the key at that path.";
     console.warn(`\n!!! ${warning} !!!\n`);

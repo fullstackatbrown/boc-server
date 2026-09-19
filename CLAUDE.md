@@ -30,6 +30,9 @@ Annotated Abbreviated File Tree:
 |   - notifications.mjs - The six templates plus the three senders the routes call. All
 |     copy lives here and nowhere else; keep rendering logic out of it, since this is the
 |     file non-programmers edit.
+|   - bounces.mjs - Holds an IMAP IDLE connection on the service inbox and turns each
+|     Delivery Status Notification from Gmail into a `[MAIL] BOUNCED` log line, labelling
+|     it BOC/Bounces so it is logged once. On whenever MAIL_TRANSPORT=smtp.
 |   - render.mjs - Turns a template's markup into an HTML body and a plain-text
 |     alternative from one source, so the two can never drift.
 | - test-helpers/ - Manual helpers, not part of verify.py. run-trip.mjs forces a trip
@@ -157,6 +160,17 @@ is only what the code and that file can't tell you.
   2026-09-17). Batches send sequentially and log as `[MAIL] smtp "<subject>" [i/n]`. The
   count on that line is what the transport **accepted**; anything refused gets its own
   `[MAIL] REJECTED` line. `test_65` signs 120 users onto trip 12 to prove the split.
+- **Bounces are watched, not just sent into the void.** `bounces.mjs` keeps an IMAP IDLE
+  connection on the service inbox (same App Password) and logs every DSN from
+  `mailer-daemon` as `[MAIL] BOUNCED <recipient> re: "<subject>" - <status> <diagnostic>`
+  within seconds of it arriving, then labels it `BOC/Bounces` so a restart or the daily
+  4am tick never logs it twice. It is on exactly when `MAIL_TRANSPORT=smtp`; there is no
+  separate flag. `test-helpers/bounces-check.mjs` parses the scrubbed real bounce in
+  `test-helpers/bounces/`, and with `LIVE=1` appends it to the inbox and waits for the
+  log line - give the fixture a fresh Message-ID per run (the script does), because
+  Gmail de-duplicates appends by Message-ID and hands back the previous copy, labels and
+  all. The only Gmail delete that sticks over IMAP is a move to Trash followed by a
+  delete from Trash; deleting from All Mail just re-files the message.
 - **Gmail also rejects mail it thinks is phishing, after accepting it at SMTP.** The old
   SELECTED wording ("[ACTION REQUIRED]", "Congratulations, you were selected", "click
   Confirm", "you might lose it") was bounced for every recipient of a real lottery; the

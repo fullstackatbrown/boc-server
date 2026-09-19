@@ -3,6 +3,7 @@ import { createWriteStream, promises as fs } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import logger from "./logger.mjs";
+import { tickBounceWatcher } from "./email-client/bounces.mjs";
 import queries from "./queries.mjs";
 const { runTrip } = queries; //This also threads the model-database-sync through queries for safe db interaction
 import models from "./models.mjs";
@@ -135,4 +136,5 @@ function jobify(cronString, job) {
 export default [
     jobify("0 5 * * *", runTrips), //Tick status of all trips being run on a given day to Post-Trip at 5am that morning
     jobify("0 0 1 1,6 *", semesterBackup), //Back up database between semesters (ie. Jan 1st and June 1st)
+    jobify("0 4 * * *", tickBounceWatcher), //Safety net for the push-based bounce watch: reconnect if Gmail dropped us, catch anything missed
 ]
