@@ -28,6 +28,7 @@
     "express-session": "^1.18.2",
     "firebase-admin": "^13.10.0",
     "google-auth-library": "^9.15.0",
+    "imapflow": "^2.0.2",
     "jsonwebtoken": "^9.0.2",
     "mariadb": "^3.4.0",
     "moment": "^2.30.1",

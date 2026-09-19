@@ -34,7 +34,6 @@ const {
   isSignedUp,
   confirmSignup,
   cancelSignup,
-  reportPaid,
   listervAdd
 } = queries;
 import cron from "node-cron";
@@ -47,11 +46,13 @@ import {
   notifyTripCancellation
 } from "./email-client/notifications.mjs";
 import { MODE as MAIL_MODE } from "./email-client/mailer.mjs";
+//Payment tracking from Brown Marketplace receipts. Never throws - see payments/watcher.mjs.
+import { DISABLED as PAYMENT_WATCH_DISABLED, tickPaymentWatcher } from "./payments/watcher.mjs";
 
 import https from "https";
-import fs from "fs";
 //Bounce watch for the mail above. Never throws - see email-client/bounces.mjs.
 import { tickBounceWatcher } from "./email-client/bounces.mjs";
+import fs from "fs";
 
 import axios from "axios";
 
@@ -437,13 +438,6 @@ tripRouter.post(
     res.sendStatus(200);
   })
 );
-tripRouter.post(
-  "/participate/pay",
-  asyncHandler(async (req, res) => {
-    await reportPaid(req.Signup);
-    res.sendStatus(200);
-  })
-);
 
 app.use("/trip/:tripId", tripRouter);
 
@@ -648,36 +642,42 @@ jobs.forEach((job) => cron.schedule(job.cronString, job.job));
 //Set port, listen for requests
 const PORT = process.env.PORT || 8080; // should be proxied behind nginx
 
+//Deliberately noisy on stderr as well as the log - these must never go unnoticed
+function startupWarning(warning) {
+  console.warn(`\n!!! ${warning} !!!\n`);
+  logger.log(`STARTUP WARNING: ${warning}`);
+}
+
 app.listen(PORT, async () => {
   await logger.start();
   logger.log(`STARTUP: Running on port ${PORT}.`);
   if (E2E_AUTH_ENABLED) {
-    //Deliberately noisy on stderr as well as the log - this must never go unnoticed
-    const warning =
+    startupWarning(
       "TEST IDENTITY BYPASS IS ACTIVE - any request may impersonate any user via an " +
       "'e2e:<email>' bearer token. This must NEVER be enabled in production. " +
-      "Unset DEVELOPING (or set NODE_ENV=production) to disable.";
-    console.warn(`\n!!! ${warning} !!!\n`);
-    logger.log(`STARTUP WARNING: ${warning}`);
+      "Unset DEVELOPING (or set NODE_ENV=production) to disable.");
   }
   if (!firebaseAuth) {
-    const warning =
+    startupWarning(
       `Firebase service account key ${firebaseKeyProblem} at ${FIREBASE_KEY_PATH} - ` +
       "/leader/firebase-token will return 503, so leaders cannot sign in to Firebase " +
-  tickBounceWatcher(); //No-op unless MAIL_TRANSPORT=smtp
       "and profile editing fails against any rule requiring request.auth. " +
-      "Set FIREBASE_KEY_PATH or place the key at that path.";
-    console.warn(`\n!!! ${warning} !!!\n`);
-    logger.log(`STARTUP WARNING: ${warning}`);
+      "Set FIREBASE_KEY_PATH or place the key at that path.");
   }
+  tickBounceWatcher(); //No-op unless MAIL_TRANSPORT=smtp
   if (process.env.NODE_ENV === "production" && MAIL_MODE !== "smtp") {
     //Mail defaults to capture everywhere, so a production box that forgets MAIL_TRANSPORT
     //sends nothing. That must be loud, not silent - it is otherwise invisible until a
     //leader asks why participants never heard about a lottery.
-    const warning =
+    startupWarning(
       `MAIL_TRANSPORT is "${MAIL_MODE}", not "smtp" - NO EMAIL WILL BE SENT. ` +
-      "Set MAIL_TRANSPORT=smtp (plus SMTP_USER and SMTP_PASS) to enable delivery.";
-    console.warn(`\n!!! ${warning} !!!\n`);
-    logger.log(`STARTUP WARNING: ${warning}`);
+      "Set MAIL_TRANSPORT=smtp (plus SMTP_USER and SMTP_PASS) to enable delivery.");
   }
+  if (process.env.NODE_ENV === "production" && PAYMENT_WATCH_DISABLED) {
+    //Same reasoning as mail: off by default, so forgetting it in production must be loud
+    startupWarning(
+      `${PAYMENT_WATCH_DISABLED} - NO PAYMENTS WILL BE RECORDED from Marketplace receipts. ` +
+      "Set PAYMENT_WATCH=1 and PAYMENT_WATCH_SINCE=<go-live date> to enable.");
+  }
+  tickPaymentWatcher(); //No-op when disabled
 });

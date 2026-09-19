@@ -1,0 +1,782 @@
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@touchnet.com header.s=scph0226 header.b=HrfhH4l8;
+       arc=pass (i=2 spf=pass spfdomain=bounce.touchnet.com dkim=pass dkdomain=touchnet.com dmarc=pass fromdomain=touchnet.com);
+       spf=pass (google.com: domain of outing+caf_=brownouting.service=gmail.com@brown.edu designates 209.85.220.41 as permitted sender) smtp.mailfrom="outing+caf_=brownouting.service=gmail.com@brown.edu";
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=touchnet.com;
+       dara=pass header.i=@gmail.com
+Authentication-Results: i-05976ca9b34c43658.mta1vsmtp.sd.prd.sparkpost smtp.user=<hidden>; auth=pass (LOGIN)
+Date: Wed, 9 Sep 2026 17:50:53 -0500 (CDT)
+Reply-To: <commerce@brown.edu>
+From: "Campus Payments" <campuspayments@touchnet.com>
+To: <outing@brown.edu>
+Message-ID: <fixture-single@boc-server.test>
+Subject: Outing Club-Class C Trip Ordered
+MIME-Version: 1.0
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html PUBLIC"-//W3C//DTD XHTML 1.0 Transitional//EN " "http://www.=
+w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+  <head>
+    <meta http-equiv=3D'Content-Type' content=3D'text/html; charset=3DUTF-8=
+' />
+    <meta property=3D'og:title' content=3D'EMAIL TEMPLATE' />
+    <title>Outing Club-Class C Trip Ordered</title>
+    <style type=3D'text/css'>
+      /*** modified 8.30.16 DW ***/
+#outlook a {
+=09padding:0;
+}
+body {
+=09width:100% !important;
+}
+body {
+=09-webkit-text-size-adjust:none;
+}
+body {
+=09margin:0;
+=09padding:0;
+}
+img {
+=09border:none;
+=09font-size:14px;
+=09font-weight:bold;
+=09height:auto;
+=09line-height:100%;
+=09outline:none;
+=09text-decoration:none;
+}
+p.callOut {
+=09padding: 5px;
+=09background: #ffedc4;
+}
+p {
+=09color: #333;
+=09margin: 0px 0px 5px;
+=09padding: 0px;
+=09font-family: Arial;
+=09display: block;
+}
+p.promotion {
+=09padding: 3px;
+=09border: 1px solid #CCCCCC;
+=09background: #ffedc4;
+=09font-weight: bold;
+}
+p .dataLabel {
+=09display: inline-block;
+=09width: 50%;
+}
+p .data {
+=09display: inline-block;
+=09width: 50%;
+}
+h1, .h1 {
+=09color:#333333;
+=09display:block;
+=09text-align:left;
+=09font: bold 24px/100% Arial;
+=09border-bottom: 2px solid #CCCCCC;
+=09margin: 0px 0px 10px;
+=09padding: 0px 0px 5px;
+}
+h2, .h2 {
+=09color:#515151;
+=09display:block;
+=09text-align:left;
+=09margin: 0px;
+=09padding: 0px 0px 5px;
+=09font: bold 18px/100% Arial;
+}
+h3, .h3 {
+=09color:#333333;
+=09display:block;
+=09text-align:left;
+=09margin: 0px 0px 5px;
+=09padding: 0px;
+=09font: bold 14px Arial;
+}
+h4, .h4 {
+=09color:#666666;
+=09display:block;
+=09font: bold 14px/100% Arial;
+=09margin-bottom:12px;
+=09text-align:left;
+}
+h5, .h5 {
+=09color:#666666;
+=09display:block;
+=09font: bold 14px/100% Arial;
+=09text-align:left;
+=09margin: 0px 0px 5px;
+=09padding: 0px;
+}
+h6, .h6 {
+=09color:#333333;
+=09display:block;
+=09font: bold 12px/100% Arial;
+=09text-align:left;
+=09margin: 5px 0px;
+=09padding: 0px;
+}
+hr {
+=09background: #ccc;
+=09display: block;
+=09height: 1px;
+=09margin: 10px 0px;
+=09padding: 0px;
+=09border-style: none;
+}
+hr.product.top {
+=09background: #CCCCCC;
+=09display: block;
+=09height: 5px;
+=09margin: 5px 0px 10px;
+=09padding: 0px;
+=09border-style: none;
+}
+hr.product.bottom {
+=09background: #CCCCCC;
+=09display: block;
+=09height: 5px;
+=09margin: 5px 0px 0px;
+=09padding: 0px;
+=09border: none;
+}
+.marginBottom10px {
+=09margin-bottom:10px !important;
+}
+ol {
+=09display: block;
+=09margin: 0px 0px 10px;
+=09padding: 0px 0px 0px 30px;
+}
+ol li {
+=09padding: 5px 0px;
+=09list-style: decimal;
+}
+table {
+=09border-collapse:collapse;
+}
+.center {
+=09text-align: center !important;
+}
+.right {
+=09text-align: right !important;
+}
+#templateContainer {
+=09border: 1px solid #ccc;
+=09margin-bottom:15px;
+}
+#backgroundTable {
+=09height:100% !important;
+=09margin:0;
+=09padding:0 0 40px;;
+=09width:100% !important;
+}
+td.preheaderContent {
+=09padding: 10px 0px;
+}
+.preheaderContent div {
+=09color:#666666;
+=09font-family:Arial;
+=09font-size:10px;
+=09line-height:100%;
+=09text-align:left;
+}
+.std_preheader_links {
+=09margin-left: 10px;
+=09padding-left: 10px;
+=09border-left: 1px solid #ccc;
+=09display:block;
+=09min-width:180px;
+}
+.preheaderContent div a:link, 
+.preheaderContent div a:visited {
+=09color: #CCCCCC;
+=09font-weight:normal;
+=09text-decoration:underline;
+}
+.preheaderContent div img {
+=09height:auto;
+=09max-width:600px;
+}
+#templateHeader {
+=09background-color:#FFFFFF;
+=09border-bottom:0;
+=09margin-bottom: 10px;
+}
+.headerContent {
+=09color:#202020;
+=09font-family:Arial;
+=09font-size:34px;
+=09font-weight:bold;
+=09line-height:100%;
+=09padding:0;
+=09text-align:center;
+=09vertical-align:middle;
+}
+.headerContent a:link, 
+.headerContent a:visited {
+=09color:#336699;
+=09font-weight:normal;
+=09text-decoration:underline;
+}
+#headerImage {
+=09height:auto;
+=09max-width:600px !important;
+}
+#templateContainer, .bodyContent {
+=09background-color:#fff;
+}
+#templateContainer tr, #templateContainer td {
+=09text-align: left;
+=09vertical-align: top;
+}
+.bodyContent, .footerContent {
+=09color:#333333;
+=09text-align:left;
+=09font: 12px/110% Arial;
+}
+.bodyContent img {
+=09display:inline;
+=09margin-bottom:10px;
+}
+.bodyContent a:link, 
+.bodyContent a:visited, 
+.footerContent a:link, 
+.footerContent a:visited {
+=09color: #CCCCCC;
+=09font-weight:normal;
+=09text-decoration:underline;
+}
+a.button:link, a.button:visited {
+=09font-weight:bold;
+=09color: #FFF;
+=09display:inline-block;
+=09border:solid 1px #CCCCCC;
+=09text-decoration:none;
+=09padding:5px;
+=09margin: 10px 10px 10px 0px;
+=09-moz-border-radius: 5px;
+=09border-radius: 5px;
+=09background: #CCCCCC; /* Old browsers */
+=09/* IE9 SVG, needs conditional override of 'filter' to 'none' */
+=09background: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/Pg=
+o8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCUiIGhla=
+WdodD0iMTAwJSIgdmlld0JveD0iMCAwIDEgMSIgcHJlc2VydmVBc3BlY3RSYXRpbz0ibm9uZSI+=
+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJncmFkLXVjZ2ctZ2VuZXJhdGVkIiBncmFkaWVudFVuaXR=
+zPSJ1c2VyU3BhY2VPblVzZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPgogIC=
+AgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2FhZDI4ZCIgc3RvcC1vcGFjaXR5PSIxI=
+i8+CiAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM1NWE1MWMiIHN0b3Atb3Bh=
+Y2l0eT0iMSIvPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg=
+9IjEiIGhlaWdodD0iMSIgZmlsbD0idXJsKCNncmFkLXVjZ2ctZ2VuZXJhdGVkKSIgLz4KPC9zdm=
+c+);
+=09background: -moz-linear-gradient(top, rgb(128, 128, 128) 0%, rgb(169, 16=
+9, 169) 100%); /* FF3.6+ */
+=09background: -webkit-gradient(linear, left top, left bottom, color-stop(0=
+%, rgb(128, 128, 128)), color-stop(100%, rgb(169, 169, 169))); /* Chrome,Sa=
+fari4+ */
+=09background: -webkit-linear-gradient(top, rgb(128, 128, 128) 0%, rgb(169,=
+ 169, 169) 100%); /* Chrome10+,Safari5.1+ */
+=09background: -o-linear-gradient(top, rgb(128, 128, 128) 0%, rgb(169, 169,=
+ 169) 100%); /* Opera 11.10+ */
+=09background: -ms-linear-gradient(top, rgb(128, 128, 128) 0%, rgb(169, 169=
+, 169) 100%); /* IE10+ */
+=09background: linear-gradient(top, rgb(128, 128, 128) 0%, rgb(169, 169, 16=
+9) 100%); /* W3C */
+=09filter: progid:DXImageTransform.Microsoft.gradient( startColorstr=3D'#aa=
+d28d', endColorstr=3D'#55a51c',GradientType=3D0 ); /* IE6-8 */
+}
+#tempOrder, #tempBilling, #tempPromotion {
+=09border-bottom:1px solid #CCC;
+=09margin-bottom:5px;
+=09padding-bottom:5px;
+}
+#tempOrder {
+=09border-top:1px solid #CCC;
+=09font-weight:bold;
+}
+#tempPromotion {
+=09border:none;
+}
+#tempItemInfo {
+=09padding-bottom:5px;
+}
+#tempProductPromotion, #tempScheduledPayment {
+=09margin: 10px 0px;
+}
+#tempProductPromotion tr td {
+=09border-top:1px solid #CCC;
+=09border-bottom:1px solid #CCC;
+=09padding-top:10px;
+}
+#tempScheduledPayment tr td {
+=09border: 1px solid #CCC;
+=09padding: 3px;
+}
+#tempScheduledPayment tr.total td, #tempScheduledPayment tr.tax td {
+=09font-weight: bold;
+=09background: #CCCCCC;
+=09color: #333;
+=09padding-top: 5px;
+=09padding-bottom: 5px;
+=09border: solid 1px #CCCCCC;
+}
+#tempProductPromotion .button {
+=09margin-top:5px;
+=09margin-bottom:0;
+}
+#tempItemDetailsProduct tr.header td, #tempScheduledPayment tr.header td {
+=09font: bold 12px/110% Arial;
+=09color: #333;
+=09padding: 3px;
+}
+#tempItemDetailsProduct h3 {
+=09font-size: 12px;
+=09font-weight: bold;
+}
+#tempItemDetailsProduct h4 {
+=09font-size: 12px;
+=09font-weight: bold;
+=09color: #333;
+=09margin: 0px;
+=09padding: 0px;
+}
+#tempItemDetailsProduct tr td, #tempItemDetailsProduct tr.information {
+=09padding: 3px;
+=09border-top: 1px solid #CCC;
+=09word-wrap: break-word;
+}
+#tempProductPromotion .product {
+=09width:90px;
+}
+.question {
+=09padding-left: 5px;
+}
+.answer {
+=09padding-left: 20px;
+=09word-wrap: break-word;
+}
+#tempItemDetails tr.subtotal, 
+#tempItemDetails tr.shipping,
+#tempItemDetails tr.individualTax,
+#tempItemDetails tr.tax,
+#tempItemDetails tr.total {
+=09font-weight: bold;
+=09color: #333;
+}
+#tempItemDetails tr.subtotal td, 
+#tempItemDetails tr.shipping td, 
+#tempItemDetails tr.tax td {
+=09border-top: 1px dashed #CCC;
+}
+#tempItemDetails tr.subtotal td {
+=09border-top: 1px solid #CCCCCC;
+}
+#tempItemDetails tr.total, #tempItemDetails tr.tax td {
+=09background: #CCCCCC;
+}
+#tempItemDetails tr.total td, #tempItemDetails tr.tax td {
+=09font-weight: bold;
+=09color: #333;
+=09padding-top: 5px;
+=09padding-bottom: 5px;
+=09border-top: none;=09
+}
+#tempItemDetailsProduct hr {
+=09background: #CCC;
+=09display: block;
+=09height: 1px;
+=09border-style: none;
+=09margin: 5px 0px;
+}
+.originalPrice {
+=09text-decoration: line-through;
+}
+.salePrice {
+=09color: #f12938;
+}
+#templateFooter {
+=09padding-top: 0px;
+}
+.footerContent hr {
+=09background: #CCC;
+=09display: block;
+=09height: 1px;
+=09border-style: none;
+=09margin: 5px 0px;
+}
+#footerLegal {
+=09display: block;
+=09padding:10px 0px 10px 10px;
+=09border-top: 1px solid #CCC;
+}
+.footerLegalContent {
+=09display: block;
+=09padding-top:10px;
+=09width: 460px;
+}
+.footerLegalContent.listInfo { 
+=09width: 580px;
+=09padding-top:0px;
+}
+.footerLegalContent p {
+=09font-size: 60%;
+=09color: #999;
+=09margin:0;
+=09padding:0;=09
+}
+.footerLegalContent a:link, .footerLegalContent a:visited {
+=09color: #999;
+=09text-decoration: none;
+}
+.footerLegalContent a:hover {
+=09text-decoration: underline;
+}
+.tnlogo {
+=09text-align: right;
+}
+.footerLegalContent a.unsubscribe:link, .footerLegalContent a.unsubscribe:v=
+isited {
+=09color: #CCCCCC;
+}
+
+    </style>
+  </head>
+  <body leftmargin=3D'0' marginwidth=3D'0' topmargin=3D'0' marginheight=3D'=
+0' offset=3D'0'>
+    <center>
+      <table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' height=3D'100=
+%' width=3D'100%' id=3D'backgroundTable' style=3D'page-break-before: always=
+'>
+        <tr>
+          <td align=3D'center' valign=3D'top'>
+            <table border=3D'0' cellpadding=3D'10' cellspacing=3D'0' width=
+=3D'600' id=3D'templatePreheader'>
+              <tr>
+                <td valign=3D'top' class=3D'preheaderContent'>
+                  <table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' w=
+idth=3D'100%'>
+                    <tr>
+                      <td valign=3D'top'>
+                        <div class=3D'std_preheader_content'>You have recei=
+ved this email from commerce&#x40;brown.edu in response to your Order.</div=
+>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+            <table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=
+=3D'600' id=3D'templateContainer'>
+              <tr>
+                <td align=3D'center' valign=3D'top'>
+                  <table border=3D'0' cellpadding=3D'10' cellspacing=3D'0' =
+width=3D'600' id=3D'templateBody'>
+                    <tr>
+                      <td valign=3D'top' class=3D'bodyContent'>
+                        <table border=3D'0' cellpadding=3D'0' cellspacing=
+=3D'0' width=3D'100%' id=3D'templateHeader'>
+                          <tr>
+                            <td valign=3D'top'>
+                              <h1 class=3D'header'>Outing Club-Class C Trip=
+ Ordered</h1>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td valign=3D'top'>
+                              <h2></h2>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td valign=3D'top'>
+                              <p>This message is an automated notification =
+that a product has been ordered.<br />If you do not wish to receive product=
+ notifications, contact the store manager.</p>
+                            </td>
+                          </tr>
+</table>
+<table border=3D'0' cellpadding=3D'5' cellspacing=3D'0' width=3D'100%' id=
+=3D'tempOrder'>
+  <tr>
+    <td valign=3D'top' width=3D'50%'>
+      <table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%=
+' id=3D'tempOrderNumberStore'>
+        <tr>
+          <td valign=3D'top'>
+            <p><span class=3D'dataLabel'>Order:</span><span class=3D'data'>=
+943032</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td valign=3D'top'>
+            <p><span class=3D'dataLabel'>Store:</span><span class=3D'data'>=
+Brown Marketplace</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td valign=3D'top'>
+            <p><span class=3D'dataLabel'>Date/Time:</span><span class=3D'da=
+ta'>September 9, 2026 at 6&#x3a;50&#x3a;49 PM EDT</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td valign=3D'top'>
+            <p><span class=3D'dataLabel'>Total:</span><span class=3D'data'>=
+&#x24;15.00</span></p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<!--billing_shipping address-->
+<table border=3D'0' cellpadding=3D'5' cellspacing=3D'0' width=3D'100%' id=
+=3D'tempBilling'>
+  <tr>
+<td valign=3D'top' width=3D'50%'>
+  <table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%' id=
+=3D'tempOrderBillTo'>
+    <tr>
+      <td valign=3D'top'>
+        <p><strong>Billed To:</strong></p>
+      </td>
+    </tr>
+    <tr>
+      <td valign=3D'top'>
+        <p><span class=3D'dataLabel'>Test Dude</span><span class=3D'data'><=
+/span></p>
+      </td>
+    </tr>
+<tr>
+  <td valign=3D'top'>
+    <p><span class=3D'dataLabel'>1 Test St</span><span class=3D'data'></spa=
+n></p>
+  </td>
+</tr>
+<tr>
+  <td valign=3D'top'>
+    <p><span class=3D'dataLabel'>Providence, RI</span><span class=3D'data'>=
+</span></p>
+  </td>
+</tr>
+<tr>
+  <td valign=3D'top'>
+    <p><span class=3D'dataLabel'>02912</span><span class=3D'data'></span></=
+p>
+  </td>
+</tr>
+<tr>
+  <td valign=3D'top'>
+    <p><span class=3D'dataLabel'>United States</span><span class=3D'data'><=
+/span></p>
+  </td>
+</tr>
+  </table>
+</td>
+  </tr>
+</table>
+<!--billing_shipping address-->
+<table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%' id=
+=3D'tempBilling'>
+  <tr>
+    <td valign=3D'top'>
+      <p><strong>Contact Email:</strong></p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=3D'top'>
+      <p><span class=3D'dataLabel'>test&#x40;du.de</span><span class=3D'dat=
+a'></span></p>
+    </td>
+  </tr>
+</table>
+<table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%' id=
+=3D'tempPaymentInfo'>
+  <tr>
+    <td valign=3D'top' width=3D'50%'>
+      <table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%=
+' id=3D'tempOrderPayment'>
+        <tr>
+          <td valign=3D'top'>
+            <p><strong>Payment Information:</strong></p>
+          </td>
+        </tr>
+        <tr>
+          <td valign=3D'top'>
+            <p><span class=3D'dataLabel'>Payment Type:</span><span class=3D=
+'data'>Credit Card</span></p>
+          </td>
+        </tr>
+      </table>
+    </td>
+<tr>
+  <td valign=3D'top' width=3D'50%'>
+    <table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%' =
+id=3D'tempOrderPayment2'>
+      <tr>
+        <td valign=3D'top'>
+          <p><span class=3D'dataLabel'>Credit Card Number:</span><span clas=
+s=3D'data'>xxxxxxxxxxxx0000</span></p>
+        </td>
+      </tr>
+      <tr>
+        <td valign=3D'top'>
+          <p><span class=3D'dataLabel'>Reference Number:</span><span class=
+=3D'data'>20260101000000</span></p>
+        </td>
+      </tr>
+<tr>
+  <td valign=3D'top'>
+    <p><span class=3D'dataLabel'>Card Type:</span><span class=3D'data'>Amer=
+ican Express</span></p>
+  </td>
+</tr>
+  <tr>
+    <td valign=3D'top' colspan=3D'2'>
+      <p>*** Card Not Present ***</p>
+    </td>
+  </tr>
+</table>
+<!--ccPaymentInfo-->
+<hr class=3D'product top' />
+<table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%' id=
+=3D'tempItemInfo'>
+  <tr>
+    <td valign=3D'top' width=3D'50%'>
+      <table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%=
+' id=3D'tempItemShipment'>
+        <tr>
+          <td valign=3D'top'>
+            <p><strong>Shipping Information:</strong></p>
+          </td>
+        </tr>
+        <tr>
+          <td valign=3D'top'>
+            <p><span class=3D'dataLabel'>Shipping Information:</span><span =
+class=3D'data'>935665</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td valign=3D'top'>
+            <p><span class=3D'dataLabel'>Delivery Method:</span><span class=
+=3D'data'>N&#x2f;A</span></p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table><!--tempItemInfo-->
+<table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%' id=
+=3D'tempItemDetails'>
+  <tr>
+    <td valign=3D'top' width=3D'100%'>
+      <table border=3D'0' cellpadding=3D'0' cellspacing=3D'0' width=3D'100%=
+' id=3D'tempItemDetailsProduct'>
+        <tr>
+          <td valign=3D'top' width=3D'40%'><strong>Item</strong></td>
+<td valign=3D'top' width=3D'15%' class=3D'center'><strong>&nbsp;</strong></=
+td>
+<td valign=3D'top' width=3D'15%' class=3D'center'><strong>Quantity</strong>=
+</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'><strong>Unit Price</stro=
+ng></td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'><strong>Total</strong></=
+td>
+</tr>
+<tr>
+  <td valign=3D'top' width=3D'40%'>
+     <div><strong>Outing Club-Class C Trip</strong></div>
+     <div>Stock Number: 7056785</div>
+<td valign=3D'top' width=3D'15%' class=3D'center'>&nbsp;</td>
+<td valign=3D'top' width=3D'15%' class=3D'center'>1</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>&#x24;15.00</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>&#x24;15.00</td>
+</tr>
+<tr>
+  <td valign=3D'top' width=3D'40%'>&nbsp;First Name: Test Dude</td>
+  <td valign=3D'top' width=3D'15%' class=3D'center'></td>
+  <td valign=3D'top' width=3D'15%' class=3D'center'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'></td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>&nbsp;</td>
+</tr>
+<tr>
+  <td valign=3D'top' width=3D'40%'>&nbsp;Last Name: Test Dude</td>
+  <td valign=3D'top' width=3D'15%' class=3D'center'></td>
+  <td valign=3D'top' width=3D'15%' class=3D'center'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'></td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>&nbsp;</td>
+</tr>
+<tr>
+  <td valign=3D'top' width=3D'40%'>&nbsp;Phone Number: 0000000000</td>
+  <td valign=3D'top' width=3D'15%' class=3D'center'></td>
+  <td valign=3D'top' width=3D'15%' class=3D'center'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'></td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>&nbsp;</td>
+</tr>
+<tr>
+  <td valign=3D'top' width=3D'40%'>&nbsp;Email Address: test&#x40;du.de</td=
+>
+  <td valign=3D'top' width=3D'15%' class=3D'center'></td>
+  <td valign=3D'top' width=3D'15%' class=3D'center'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'></td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>&nbsp;</td>
+</tr>
+<tr class=3D'subtotal'>
+  <td valign=3D'top' width=3D'40%'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>Subtotal:</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>&#x24;15.00</td>
+</tr>
+<tr class=3D'tax'>
+  <td valign=3D'top' width=3D'40%'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%'>&nbsp;</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>Tax Total:</td>
+  <td valign=3D'top' width=3D'15%' class=3D'right'>&#x24;0.00</td>
+</tr>
+        <tr class=3D'total'>
+          <td valign=3D'top' width=3D'40%'>&nbsp;</td>
+          <td valign=3D'top' width=3D'15%'>&nbsp;</td>
+          <td valign=3D'top' width=3D'15%'>&nbsp;</td>
+          <td valign=3D'top' width=3D'15%' class=3D'right'>Total:</td>
+          <td valign=3D'top' width=3D'15%' class=3D'right'>&#x24;15.00</td>
+        </tr>
+          </table><!--tempItemInfo-->
+    </td>
+  </tr>
+</table>
+          <hr class=3D'product bottom' />
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+  <td align=3D'center' valign=3D'top'>
+    <table border=3D'0' cellpadding=3D'10' cellspacing=3D'0' width=3D'600' =
+id=3D'templateFooter'>
+      <tr>
+        <td valign=3D'top' class=3D'footerContent'>
+<p>For questions, comments, or Order status, send email to <a href=3D'mailt=
+o:commerce&#x40;brown.edu' style=3D'color: #55a51c;font-weight: normal;text=
+-decoration: underline;'>commerce&#x40;brown.edu</a> and refer to Order 943=
+032. Visit us <a href=3D'https&#x3a;&#x2f;&#x2f;payment.brown.edu&#x3a;443&=
+#x2f;C20460_ustores&#x2f;web&#x2f;index.jsp' style=3D'color: #55a51c;font-w=
+eight: normal;text-decoration: underline;'>online</a>.</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </center>
+  </body>
+</html>

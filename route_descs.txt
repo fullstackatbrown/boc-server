@@ -97,7 +97,6 @@ EXPRESS ROUTES:                         METHOD: AUTH REQUIRED:  BODY:           
                                                                                 Indicates willingness/readiness to attend. Assumes any required payment
                                                                                 has been made (although there is no way to enforce this on this server).
 /trip/<tripId>/participate/cancel       POST    Any Role        N/A             Destroys the user's TripSignUp instance for the trip at tripId.
-/trip/<tripId>/participate/pay          POST    Any Role        N/A             Sets paid=true on the user's TripSignUp for the trip at tripId.
 /public/leader-stats/:first/:last       GET     None            N/A             Returns { totalTrips: <count> }: the number of trips the specified user
                                                                                 has LED that have actually run, i.e. signups with tripRole Leader on a
                                                                                 trip whose status is Post-Trip or Complete. Staging/Open/Pre-Trip trips
@@ -182,7 +181,7 @@ Role Json:
 }
 
 EMAIL NOTIFICATIONS:
-Three routes send mail as a side effect. Every message CCs the trip's leaders, sets them
+Three routes and one daily job send mail. Every message CCs the trip's leaders, sets them
 as Reply-To, and BCCs its participant recipients, so participants never see each other's
 addresses. A group with no recipients is skipped rather than sent empty, and a group too
 large for one message (Gmail caps recipients per message) goes out as several identical
@@ -199,6 +198,9 @@ messages, each CCing the leaders.
                                      No Show -> "We missed you"
                                      Excused Absence -> nothing; they cancelled ahead of
                                      time and their signup is deleted
+(daily job, remindPayments)          Attended and unpaid, 1-6 days after the trip ->
+                                     "Payment reminder"; day 7 -> "Payment overdue" plus
+                                     "Unpaid participants" To the leaders; then nothing
 /trip/<tripId>/lead/cancel           Open: everyone signed up -> "Trip cancelled"
                                      Pre-Trip: Selected and Waitlisted only -> same
                                      (Not Selected have already been told they're off)
@@ -208,3 +210,8 @@ messages, each CCing the leaders.
 
 Sending never fails a request: mailer.mjs logs and swallows errors, because each of these
 routes has already committed an irreversible trip transition by the time mail goes out.
+
+PAYMENT TRACKING:
+No route records a payment. `paid` on a TripSignUp is set by payments/watcher.mjs when a
+Brown Marketplace receipt arrives in the service Gmail account - see "Payment Tracking" in
+CLAUDE.md for the matching policy. The frontend's Pay button only opens the store.

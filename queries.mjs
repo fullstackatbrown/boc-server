@@ -719,9 +719,76 @@ async function cancelSignup(signup) {
   return signup.destroy()
 }
 
-async function reportPaid(signup) {
-  signup.paid = true;
-  return signup.save()
+//What a participant owes. Needs the trip's TripClass included.
+function tripPrice(trip) {
+  return trip.priceOverride ?? trip.TripClass?.price;
+}
+
+//Trips that ran between the two dates (inclusive; by end date for multi-day trips) whose
+//attended participants still owe money, as [{ trip, unpaid: [{ firstName, lastName,
+//email }] }]. Free and fully paid trips are left out, so this is exactly the set that
+//needs a payment reminder (see remindPayments in server_jobs.mjs).
+async function getUnpaidAttendance(fromDate, toDate) {
+  const ended = { [Op.between]: [fromDate, toDate] };
+  const trips = await Trip.findAll({
+    where: {
+      status: "Complete", //Attendance has been taken
+      [Op.or]: [{ plannedEndDate: ended }, { plannedEndDate: null, plannedDate: ended }],
+    },
+    include: [
+      TripClass,
+      {
+        model: User,
+        attributes: ["firstName", "lastName", "email"],
+        through: { where: { tripRole: "Participant", status: "Attended", paid: false } },
+        required: true, //Drops trips with nobody unpaid
+      },
+    ],
+  });
+  return trips
+    .filter((trip) => tripPrice(trip) > 0)
+    .map((trip) => ({ trip, unpaid: trip.Users.map(({ firstName, lastName, email }) => ({ firstName, lastName, email })) }));
+}
+
+//Records a Brown Marketplace payment (see payments/receipt.mjs) against the signup it
+//most plausibly covers. A receipt names a buyer and a unit price but never a trip, so:
+//the buyer's Participant signups that are Selected or Attended, unpaid, and on a trip
+//costing exactly unitPrice (class price or override), oldest trip first. That is nearly
+//always one signup; when it isn't, the buyer owes for both anyway and which is marked
+//first doesn't matter. altEmail is the store's optional form field, tried only when the
+//checkout address matches no user. Returns the signups marked - empty when nothing
+//matched, in which case the receipt is simply disregarded: paying from an address the
+//site doesn't know is the participant's problem to sort out with an admin.
+//A multi-item cart is first tried as one payment of cartTotal, since trips priced above
+//any single item are bought as two items in one cart. Idempotent when both products
+//notify: the second email finds no unpaid trip at the cart total and falls through to
+//unitPrice. Accepted edge: a buyer with such a trip AND another unpaid trip at one of
+//the item prices could have the second email mark the other trip - they owe for both.
+//`options` is passed through to Sequelize so tests can run inside a transaction.
+async function applyPayment({ email, altEmail, unitPrice, quantity = 1, cartTotal }, options = {}) {
+  let user = await User.findOne({ where: { email }, ...options });
+  if (!user && altEmail) user = await User.findOne({ where: { email: altEmail }, ...options });
+  if (!user) return [];
+  const signups = await TripSignUp.findAll({
+    where: {
+      userId: user.id,
+      tripRole: "Participant",
+      status: { [Op.in]: ["Selected", "Attended"] },
+      paid: false,
+    },
+    include: { model: Trip, include: TripClass },
+    order: [[Trip, "plannedDate", "ASC"]],
+    ...options,
+  });
+  const at = (amount) => signups.filter((signup) => Math.abs(tripPrice(signup.Trip) - amount) < 0.005); //FLOAT column
+  let matched = [];
+  if (cartTotal != null && Math.abs(cartTotal - unitPrice * quantity) >= 0.005) matched = at(cartTotal).slice(0, 1);
+  if (!matched.length) matched = at(unitPrice).slice(0, quantity);
+  for (const signup of matched) {
+    signup.paid = true;
+    await signup.save(options);
+  }
+  return matched;
 }
 
 //TODO: add and test route
@@ -768,6 +835,8 @@ export default {
   isSignedUp,
   confirmSignup,
   cancelSignup,
-  reportPaid,
+  applyPayment,
+  getUnpaidAttendance,
+  tripPrice,
   listervAdd,
 };

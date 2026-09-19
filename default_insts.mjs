@@ -259,8 +259,20 @@ const { User, Trip, TripSignUp, TripClass } = models;
         class: 'Z',
         sentenceDesc: 'A trip with more signups than fit in one email',
     })
+    //A trip that ran and took attendance, with fees still owed - the payment reminder job
+    //(test-helpers/remind-payments.mjs) is replayed against it on chosen dates
+    let trip13 = Trip.upsert({
+        id: 13,
+        tripName: 'Unpaid Test Trip',
+        plannedDate: "2026-04-20", //A string, so no timezone shifts the day the reminders count from
+        category: 'Hiking',
+        status: 'Complete',
+        maxSize: 5,
+        class: 'C',
+        sentenceDesc: 'Attended, and two of three attendees have not paid',
+    })
     await Promise.all([user, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12,
-        trip, trip2, trip3, trip4, trip5, trip6, trip7, trip8, trip9, trip10, trip11, trip12]);
+        trip, trip2, trip3, trip4, trip5, trip6, trip7, trip8, trip9, trip10, trip11, trip12, trip13]);
 
     let ts1 = TripSignUp.create({
         userId: 1,
@@ -308,7 +320,12 @@ const { User, Trip, TripSignUp, TripClass } = models;
     let ts18 = TripSignUp.create({ userId: 9, tripId: 11, tripRole: "Participant" });
     let ts19 = TripSignUp.create({ userId: 10, tripId: 11, tripRole: "Participant" });
     let ts20 = TripSignUp.create({ userId: 1, tripId: 12, tripRole: "Leader" });
-    await Promise.all([ts12, ts13, ts14, ts15, ts16, ts17, ts18, ts19, ts20]);
+    let ts21 = TripSignUp.create({ userId: 1, tripId: 13, tripRole: "Leader" });
+    let ts22 = TripSignUp.create({ userId: 5, tripId: 13, tripRole: "Participant", status: "Attended", confirmed: 1 });
+    let ts23 = TripSignUp.create({ userId: 6, tripId: 13, tripRole: "Participant", status: "Attended", confirmed: 1 });
+    let ts24 = TripSignUp.create({ userId: 7, tripId: 13, tripRole: "Participant", status: "Attended", confirmed: 1, paid: 1 });
+    let ts25 = TripSignUp.create({ userId: 8, tripId: 13, tripRole: "Participant", status: "No Show",  confirmed: 1 });
+    await Promise.all([ts12, ts13, ts14, ts15, ts16, ts17, ts18, ts19, ts20, ts21, ts22, ts23, ts24, ts25]);
 
     //Close connection so as not to leave hanging connections
     sequelize.close();

@@ -25,6 +25,7 @@ without resetting the database first.
 import json
 import os
 import requests
+import subprocess
 import unittest
 from contextlib import contextmanager
 from datetime import date
@@ -76,6 +77,9 @@ SUBJ_NOT_SELECTED = "Status Update: "
 SUBJ_THANKS = "Thanks for coming on "
 SUBJ_NO_SHOW = "We missed you on "
 SUBJ_CANCELLED = "CANCELLED - "
+SUBJ_PAYMENT_DUE = "Payment reminder - "
+SUBJ_PAYMENT_OVERDUE = "[ACTION REQUIRED] Payment overdue - "
+SUBJ_UNPAID_HANDOFF = "Unpaid participants - "
 
 
 def all_sent_mail():
@@ -445,7 +449,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(r.status_code, 403)
 
     # =========================================================================
-    # /trip/<tripId>/participate/confirm + pay + cancel
+    # /trip/<tripId>/participate/confirm + cancel (+ the removed pay route)
     # Run in order on trip 3, where User 1 is a Participant in default_insts.
     # =========================================================================
 
@@ -457,12 +461,9 @@ class ServerTests(unittest.TestCase):
         self.assertIsNotNone(trip3)
         self.assertTrue(trip3["confirmed"])
 
-    def test_39_participate_pay_success(self):
-        r = post("/trip/3/participate/pay")
-        self.assertEqual(r.status_code, 200)
-        signups = get("/user/profile").json()["TripSignUps"]
-        trip3 = next((s for s in signups if s["tripId"] == 3), None)
-        self.assertTrue(trip3["paid"])
+    def test_39_participate_pay_route_removed(self):
+        """Payment is recorded from Marketplace receipts (payments/), never self-reported."""
+        self.assertEqual(post("/trip/3/participate/pay").status_code, 404)
 
     def test_40_participate_cancel_destroys_signup(self):
         r = post("/trip/3/participate/cancel")
@@ -586,6 +587,7 @@ class ServerTests(unittest.TestCase):
         messages = all_sent_mail()
         self.assertGreater(len(messages), 0)
         for m in messages:
+            if not m["bcc"]: continue #A message to the leaders alone has nobody to hide
             self.assertGreater(len(m["cc"]), 0, f"no leaders CC'd on {m['subject']}")
             self.assertEqual(m["replyTo"], ", ".join(m["cc"]))
             for recipient in m["bcc"]:
@@ -635,6 +637,9 @@ class ServerTests(unittest.TestCase):
     def test_63_alter_accepts_waitlist_size(self):
         """waitlistSize is editable while a trip is still Staging/Open."""
         r = post("/trip/7/lead/alter", {"waitlistSize": 3})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(get("/trip/7").json()["waitlistSize"], 3)
+
     # =========================================================================
     # Mail batching
     #
@@ -669,9 +674,6 @@ class ServerTests(unittest.TestCase):
         #The two selected fit in one message, so that one must not be split
         self.assertEqual(len(sent_mail(SUBJ_SELECTED + "Big Trip")), 1)
 
-        self.assertEqual(r.status_code, 200)
-        self.assertEqual(get("/trip/7").json()["waitlistSize"], 3)
-
     # =========================================================================
     # Batch waitlist promotion
     #
@@ -696,8 +698,7 @@ class ServerTests(unittest.TestCase):
 
     def test_72_batch_promotion_sends_one_message_to_everyone_promoted(self):
         """The batch is one mail with both promoted users bcc'd, and the now-empty
-        waitlist adds nothing further. Promotion shares the 'SELECTED' subject with
-        the lottery, so the trip name is what scopes this."""
+        waitlist adds nothing further."""
         r = post("/trip/6/lead/add-participant", {"count": 2})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["success"], 0)
@@ -901,6 +902,54 @@ class ServerTests(unittest.TestCase):
         r = get("/public/leader-stats/Nobody/Atall")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["totalTrips"], 0)
+
+    # =========================================================================
+    # Payment reminders (server_jobs.remindPayments, replayed on chosen dates)
+    #
+    # Trip 13 ran on 2026-04-20 and took attendance: Ada and Grace attended and owe $15,
+    # Turing attended and paid, Johnson no-showed. Only the first two should ever hear.
+    # =========================================================================
+
+    UNPAID = ["ada.lovelace@brown.edu", "grace.hopper@brown.edu"]
+
+    def _remind_as_of(self, date):
+        subprocess.run(["node", "test-helpers/remind-payments.mjs", date], check=True, capture_output=True)
+
+    def test_99a_daily_reminder_goes_to_unpaid_attendees_only(self):
+        self._remind_as_of("2026-04-23") #Day 3
+        messages = sent_mail(SUBJ_PAYMENT_DUE + "Unpaid Test Trip")
+        self.assertEqual(len(messages), 1)
+        m = messages[0]
+        self.assertEqual(sorted(m["bcc"]), self.UNPAID)
+        self.assertEqual(m["cc"], ["william_l_stone@brown.edu"])
+        self.assertIn("Outing Club-Class C Trip", m["text"])
+        self.assertIn("$15", m["text"])
+        self.assertIn("/trips/view?id=13", m["text"])
+        self.assertNotIn("*", m["html"])
+        self.assertNotIn("](", m["html"])
+
+    def test_99b_day_seven_sends_the_final_notice_and_hands_off_to_leaders(self):
+        self._remind_as_of("2026-04-27") #Day 7
+        self.assertEqual(len(sent_mail(SUBJ_PAYMENT_DUE + "Unpaid Test Trip")), 1) #Unchanged
+        final = sent_mail(SUBJ_PAYMENT_OVERDUE + "Unpaid Test Trip")
+        self.assertEqual(len(final), 1)
+        self.assertEqual(sorted(final[0]["bcc"]), self.UNPAID)
+        handoff = sent_mail(SUBJ_UNPAID_HANDOFF + "Unpaid Test Trip")
+        self.assertEqual(len(handoff), 1)
+        h = handoff[0]
+        self.assertEqual(h["to"], ["william_l_stone@brown.edu"])
+        self.assertEqual(h["bcc"], [])
+        self.assertIn("Ada Lovelace - ada.lovelace@brown.edu", h["text"])
+        self.assertIn("Grace Hopper - grace.hopper@brown.edu", h["text"])
+        self.assertNotIn("Turing", h["text"])   #Paid
+        self.assertNotIn("Johnson", h["text"])  #No show
+        self.assertNotIn("](", h["html"])
+
+    def test_99c_nothing_after_day_seven_and_nothing_for_free_trips(self):
+        before = len(all_sent_mail())
+        self._remind_as_of("2026-04-28") #Day 8
+        self._remind_as_of("2026-05-02") #Day after trip 9 (free, class Z) ran
+        self.assertEqual(len(all_sent_mail()), before)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
