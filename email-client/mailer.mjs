@@ -46,20 +46,50 @@ async function capture(msg) {
   await fs.appendFile(CAPTURE_FILE, `${JSON.stringify(msg)}\n`);
 }
 
-//Sends one message. NEVER throws: every caller has already committed an irreversible
-//trip transition, so a mail failure must be logged and swallowed rather than turned
-//into a 500 that invites the leader to retry an operation they cannot repeat.
+//Gmail caps a message at 100 recipients (To + Cc + Bcc together) over SMTP. It refuses
+//every RCPT past the cap with a 4xx, and nodemailer still resolves as long as one
+//recipient was accepted - so an oversized BCC list silently loses its tail. That is what
+//dropped 48 waitlisters on 2026-09-17. Kept well under the cap for headroom.
+export const MAX_RECIPIENTS = 90;
+
+//Sends one message, in as many batches as its BCC list needs. NEVER throws: every
+//caller has already committed an irreversible trip transition, so a mail failure must
+//be logged and swallowed rather than turned into a 500 that invites the leader to
+//retry an operation they cannot repeat.
 export async function sendMail(msg) {
   //Templates supply one markup source as `text`; both bodies are derived from it so the
   //HTML and plain-text versions can never say different things.
   const body = msg.text ? renderBody(msg.text) : {};
   const message = { from: SERVICE_ADDRESS, to: SERVICE_ADDRESS, ...msg, ...body };
+  const bcc = message.bcc ?? [];
+  //One To plus the CC'd leaders ride on every batch
+  const perBatch = Math.max(1, MAX_RECIPIENTS - 1 - (message.cc?.length ?? 0));
+  const batches = bcc.length === 0 ? [[]] : []; //No BCC (smtp-check) is still one message
+  for (let i = 0; i < bcc.length; i += perBatch) batches.push(bcc.slice(i, i + perBatch));
+  //Sequential, so a Gmail hiccup on one batch can't interleave with the next
+  for (const [i, batch] of batches.entries()) {
+    const part = batches.length > 1 ? ` [${i + 1}/${batches.length}]` : "";
+    await deliver({ ...message, bcc: batch }, part);
+  }
+}
+
+async function deliver(message, part) {
+  const tag = `"${message.subject}"${part}`;
   try {
+    let rejected = [];
+    let diagnostic = "";
     if (MODE === "capture") await capture(message);
-    else await smtpTransport().sendMail(message);
-    //One fixed tag on both lines so grepping the log for [MAIL] finds every message
-    logger.log(`[MAIL] ${MODE} "${message.subject}" -> ${message.bcc?.length ?? 0} recipient(s)`);
+    else {
+      const info = await smtpTransport().sendMail(message);
+      rejected = info.rejected ?? [];
+      diagnostic = info.rejectedErrors?.[0]?.response ?? "";
+    }
+    //Counts what the transport accepted, not what was asked for; one fixed tag on every
+    //line so grepping the log for [MAIL] finds every message
+    const accepted = message.bcc.filter((r) => !rejected.includes(r)).length;
+    logger.log(`[MAIL] ${MODE} ${tag} -> ${accepted} recipient(s)`);
+    if (rejected.length > 0) logger.log(`[MAIL] REJECTED ${tag}: ${rejected.join(", ")} - ${diagnostic}`);
   } catch (err) {
-    logger.log(`[MAIL] FAILED "${message.subject}": ${err.message}`);
+    logger.log(`[MAIL] FAILED ${tag}: ${err.message}`);
   }
 }

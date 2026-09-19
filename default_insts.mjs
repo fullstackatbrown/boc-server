@@ -247,8 +247,20 @@ const { User, Trip, TripSignUp, TripClass } = models;
         class: 'Z',
         sentenceDesc: 'A trip with no waitlist at all',
     })
+    //Signups come from verify.py, which auto-creates well over a mailer batch of
+    //participants to prove the lottery mail is split under Gmail's recipient cap
+    let trip12 = Trip.upsert({
+        id: 12,
+        tripName: 'Big Trip',
+        plannedDate: new Date("2026-11-07"),
+        category: 'Event',
+        status: 'Open',
+        maxSize: 2,
+        class: 'Z',
+        sentenceDesc: 'A trip with more signups than fit in one email',
+    })
     await Promise.all([user, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12,
-        trip, trip2, trip3, trip4, trip5, trip6, trip7, trip8, trip9, trip10, trip11]);
+        trip, trip2, trip3, trip4, trip5, trip6, trip7, trip8, trip9, trip10, trip11, trip12]);
 
     let ts1 = TripSignUp.create({
         userId: 1,
@@ -295,7 +307,8 @@ const { User, Trip, TripSignUp, TripClass } = models;
     let ts17 = TripSignUp.create({ userId: 8, tripId: 11, tripRole: "Participant" });
     let ts18 = TripSignUp.create({ userId: 9, tripId: 11, tripRole: "Participant" });
     let ts19 = TripSignUp.create({ userId: 10, tripId: 11, tripRole: "Participant" });
-    await Promise.all([ts12, ts13, ts14, ts15, ts16, ts17, ts18, ts19]);
+    let ts20 = TripSignUp.create({ userId: 1, tripId: 12, tripRole: "Leader" });
+    await Promise.all([ts12, ts13, ts14, ts15, ts16, ts17, ts18, ts19, ts20]);
 
     //Close connection so as not to leave hanging connections
     sequelize.close();

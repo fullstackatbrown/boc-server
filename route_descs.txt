@@ -184,7 +184,9 @@ Role Json:
 EMAIL NOTIFICATIONS:
 Three routes send mail as a side effect. Every message CCs the trip's leaders, sets them
 as Reply-To, and BCCs its participant recipients, so participants never see each other's
-addresses. A group with no recipients is skipped rather than sent empty.
+addresses. A group with no recipients is skipped rather than sent empty, and a group too
+large for one message (Gmail caps recipients per message) goes out as several identical
+messages, each CCing the leaders.
 
 /trip/<tripId>/lead/lottery          Selected -> "You're on the trip"
                                      Waitlisted -> "You're on the waitlist"

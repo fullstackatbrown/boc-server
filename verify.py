@@ -70,7 +70,7 @@ SENT_MAIL_FILE = "./sent_mail.jsonl"
 # only assertions tied to wording, so they are collected here: if the club edits a subject
 # the email tests fail pointing at this block, rather than in five scattered places.
 # Note that waitlist promotion deliberately reuses the SELECTED subject.
-SUBJ_SELECTED = "[ACTION REQUIRED] SELECTED - "
+SUBJ_SELECTED = "You have a spot on "
 SUBJ_WAITLISTED = "[ACTION REQUIRED] WAITLISTED - "
 SUBJ_NOT_SELECTED = "Status Update: "
 SUBJ_THANKS = "Thanks for coming on "
@@ -636,6 +636,40 @@ class ServerTests(unittest.TestCase):
     def test_63_alter_accepts_waitlist_size(self):
         """waitlistSize is editable while a trip is still Staging/Open."""
         r = post("/trip/7/lead/alter", {"waitlistSize": 3})
+    # =========================================================================
+    # Mail batching
+    #
+    # Gmail refuses every recipient past 100 per message and nodemailer resolves
+    # anyway, so mailer.mjs splits BCC into batches. Trip 12 gets more signups
+    # than one batch holds; the lottery then has to produce several messages.
+    # =========================================================================
+
+    #Must match MAX_RECIPIENTS in email-client/mailer.mjs
+    MAX_RECIPIENTS = 90
+    BIG_TRIP_SIGNUPS = 120
+
+    def test_65_lottery_mail_is_batched_under_the_recipient_cap(self):
+        """Every waitlister is BCC'd exactly once across the batches, no batch
+        exceeds the cap counting To and CC, and each batch keeps the leaders."""
+        for i in range(self.BIG_TRIP_SIGNUPS):
+            with as_user(f"bulk_{i}@brown.edu"):
+                self.assertEqual(post("/trip/12/signup").status_code, 200)
+        r = post("/trip/12/lead/lottery")
+        self.assertEqual(r.status_code, 200)
+        waitlisted = r.json()["waitlisted"]
+        self.assertEqual(len(waitlisted), self.BIG_TRIP_SIGNUPS - 2)
+        batches = sent_mail(SUBJ_WAITLISTED + "Big Trip")
+        self.assertGreater(len(batches), 1)
+        seen = []
+        for m in batches:
+            self.assertLessEqual(1 + len(m["cc"]) + len(m["bcc"]), self.MAX_RECIPIENTS)
+            self.assertGreater(len(m["cc"]), 0)
+            self.assertEqual(m["text"], batches[0]["text"])
+            seen += m["bcc"]
+        self.assertEqual(sorted(seen), sorted(waitlisted))
+        #The two selected fit in one message, so that one must not be split
+        self.assertEqual(len(sent_mail(SUBJ_SELECTED + "Big Trip")), 1)
+
         self.assertEqual(r.status_code, 200)
         self.assertEqual(get("/trip/7").json()["waitlistSize"], 3)
 

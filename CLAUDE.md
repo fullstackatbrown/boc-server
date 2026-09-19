@@ -151,6 +151,19 @@ is only what the code and that file can't tell you.
   line break (that is what keeps the two-line signoff intact). `render.mjs` derives *both*
   the HTML body and the plain-text alternative from that one source so they cannot drift,
   and `mailer.mjs` calls it — templates never build HTML themselves. Escaping runs before
+- **BCC is batched at `MAX_RECIPIENTS` (90, counting To and CC).** Gmail refuses every
+  recipient past 100 per message, and nodemailer resolves anyway as long as one was
+  accepted, so before this an oversized list silently lost its tail (48 waitlisters on
+  2026-09-17). Batches send sequentially and log as `[MAIL] smtp "<subject>" [i/n]`. The
+  count on that line is what the transport **accepted**; anything refused gets its own
+  `[MAIL] REJECTED` line. `test_65` signs 120 users onto trip 12 to prove the split.
+- **Gmail also rejects mail it thinks is phishing, after accepting it at SMTP.** The old
+  SELECTED wording ("[ACTION REQUIRED]", "Congratulations, you were selected", "click
+  Confirm", "you might lose it") was bounced for every recipient of a real lottery; the
+  bounces only show up as Delivery Status Notifications in the service inbox, which
+  nothing reads. `selected` and `promoted` are now written in a plain register with one
+  link - keep them that way, and never sign a template with urgency or capitals. A
+  single-recipient test send does *not* reproduce the block; only a real fan-out does.
   markup expands, so an `&` in a trip name survives as `&amp;`.
 - Link colour is `#4A7A2E`, deliberately **not** the site's brand green `#5B913A`, which
   measures 3.78:1 against white and fails WCAG AA for body text. This is 5.10:1.

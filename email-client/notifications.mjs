@@ -15,15 +15,19 @@ const SIGNOFF = "See you outside,\nThe Brown Outing Club";
 //Each template returns { subject, text }. Copy lives here and nowhere else - editing
 //the wording of an email should never mean touching sending logic.
 
+//Written to read like a note from a person, not a notice. The previous wording -
+//"[ACTION REQUIRED]", "Congratulations, you were selected", "click Confirm", "you might
+//lose it" - was bounced by Gmail's outbound spam filter for every recipient of the
+//2026-09-17 Apple Picking lottery. No shouting, no urgency, one plain link.
 const selected = (trip) => ({
-  subject: `[ACTION REQUIRED] SELECTED - ${trip.tripName}`,
-  text: `Congratulations, you were selected for ${trip.tripName} on ${when(trip)}!
+  subject: `You have a spot on ${trip.tripName}`,
+  text: `The lottery for ${trip.tripName} (${when(trip)}) has run, and you have a spot on the trip.
 
-While you currently have a spot on the trip, we still need you to *confirm your spot* for you to keep it. If you have not confirmed your spot shortly before the date of the trip, you might lose it to someone on the waitlist. To confirm your spot, visit the [trip page on the website](${tripUrl(trip)}) and click "Confirm". 
+To keep it, please confirm on the [trip page](${tripUrl(trip)}). You'll need to be signed in to the site with your Brown account to see the Confirm button. Spots that are still unconfirmed shortly before the trip may be offered to the waitlist.
 
-If you can no longer make it, please visit that same page to cancel your spot as soon as you can so that we can give your spot to someone on the waitlist as soon as possible. 
+If you can no longer make it, please cancel on that same page so your spot can go to someone else.
 
-We're looking forward to exploring with you soon! You will receive an email with more trip specific details before the day of the trip. If you have any questions, feel free to respond to this email (it will go directly to the trip's leaders). 
+The leaders will send trip details (meeting time, what to bring) before the day. Any questions, just reply to this email - it goes straight to them.
 
 ${SIGNOFF}`,
 });
@@ -32,7 +36,7 @@ const waitlisted = (trip) => ({
   subject: `[ACTION REQUIRED] WAITLISTED - ${trip.tripName}`,
   text: `You are currently on the waitlist for ${trip.tripName} on ${when(trip)}. While you weren't directly selected, spots open up pretty regularly and your odds of getting on the trip if you're still interested are probably better than you think. 
 
-If you're still interested, please *confirm your interest* via the [trip page](${tripUrl(trip)}). Confirming your interest now will give you priority over all other waitlisted participants who have not done so. 
+If you're still interested, please *confirm your interest* via the [trip page](${tripUrl(trip)}) - you'll need to be signed in to the site with your Brown account to see the Confirm button. Confirming your interest now will give you priority over all other waitlisted participants who have not done so. 
 
 If you do not end up with a spot on the trip, we're sorry we weren't able to bring you with us! To compensate, your odds of getting on the next trip you sign up for will be increased.
 
@@ -48,13 +52,14 @@ We're sorry we weren't able to bring you with us; to compensate, your odds of ge
 ${SIGNOFF}`,
 });
 
+//Same subject as `selected`, and the same calm register, for the same reason
 const promoted = (trip) => ({
-  subject: `[ACTION REQUIRED] SELECTED - ${trip.tripName}`,
-  text: `A spot opened up, and you have been pulled off of the waitlist for ${trip.tripName} on ${when(trip)}!
+  subject: `You have a spot on ${trip.tripName}`,
+  text: `A spot opened up on ${trip.tripName} (${when(trip)}), and it's yours - you've been moved off the waitlist.
 
-If you have not already done so, please *inform us of your continued interest by confirming* on the [trip page](${tripUrl(trip)}). If significant time passes without confirmation, it is possible for your spot to be handed to someone else on the waitlist. If you are no longer interested, please cancel your spot on the same page so we can give it to someone else.
+If you haven't already, please confirm on the [trip page](${tripUrl(trip)}) so the leaders know you're coming. You'll need to be signed in to the site with your Brown account to see the Confirm button. If some time passes without a confirmation, the spot may be passed along to the next person on the waitlist; if you're no longer interested, please cancel on the same page instead.
 
-We're looking forward to exploring with you soon! You will receive an email with more trip specific details before the day of the trip. If you have any questions, feel free to respond to this email (it will go directly to the trip's leaders). 
+The leaders will send trip details (meeting time, what to bring) before the day. Any questions, just reply to this email - it goes straight to them.
 
 ${SIGNOFF}`,
 });
