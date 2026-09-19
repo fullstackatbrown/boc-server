@@ -52,25 +52,53 @@ async function capture(msg) {
 //dropped 48 waitlisters on 2026-09-17. Kept well under the cap for headroom.
 export const MAX_RECIPIENTS = 90;
 
+//Gmail also caps a consumer account at about 500 recipients per rolling 24 hours, and
+//past it simply refuses to send for a day. The guard below keeps a ledger of what this
+//process has sent - in memory only, so a restart forgets it; that is accepted - and drops
+//any BCC'd message that would cross the line, whole rather than in part, since half a
+//lottery hearing is worse than none. Messages with no BCC (a note to the leaders, the
+//quota notice itself) bypass it: they are a few recipients, and the 25 of headroom is
+//there so they always get through.
+export const DAILY_RECIPIENT_LIMIT = 475;
+const DAY_MS = 24 * 60 * 60_000;
+export const ledger = []; //{ sentAt, recipients } - exported so a check can prime it
+function sentInLastDay() {
+  const cutoff = Date.now() - DAY_MS;
+  while (ledger.length && ledger[0].sentAt < cutoff) ledger.shift();
+  return ledger.reduce((n, entry) => n + entry.recipients, 0);
+}
+
 //Sends one message, in as many batches as its BCC list needs. NEVER throws: every
 //caller has already committed an irreversible trip transition, so a mail failure must
 //be logged and swallowed rather than turned into a 500 that invites the leader to
-//retry an operation they cannot repeat.
+//retry an operation they cannot repeat. Resolves false only when the daily quota guard
+//dropped the message, so a route can tell the leaders.
 export async function sendMail(msg) {
   //Templates supply one markup source as `text`; both bodies are derived from it so the
   //HTML and plain-text versions can never say different things.
   const body = msg.text ? renderBody(msg.text) : {};
   const message = { from: SERVICE_ADDRESS, to: SERVICE_ADDRESS, ...msg, ...body };
   const bcc = message.bcc ?? [];
+  const cc = message.cc ?? [];
   //One To plus the CC'd leaders ride on every batch
-  const perBatch = Math.max(1, MAX_RECIPIENTS - 1 - (message.cc?.length ?? 0));
+  const perBatch = Math.max(1, MAX_RECIPIENTS - 1 - cc.length);
   const batches = bcc.length === 0 ? [[]] : []; //No BCC (smtp-check) is still one message
   for (let i = 0; i < bcc.length; i += perBatch) batches.push(bcc.slice(i, i + perBatch));
+  if (bcc.length > 0) {
+    const recipients = batches.length * (1 + cc.length) + bcc.length;
+    const sent = sentInLastDay();
+    if (sent + recipients > DAILY_RECIPIENT_LIMIT) {
+      logger.log(`[MAIL] QUOTA "${message.subject}" -> ${bcc.length} recipient(s) NOT SENT (${sent} sent in the last 24h, limit ${DAILY_RECIPIENT_LIMIT})`);
+      return false;
+    }
+    ledger.push({ sentAt: Date.now(), recipients });
+  }
   //Sequential, so a Gmail hiccup on one batch can't interleave with the next
   for (const [i, batch] of batches.entries()) {
     const part = batches.length > 1 ? ` [${i + 1}/${batches.length}]` : "";
     await deliver({ ...message, bcc: batch }, part);
   }
+  return true;
 }
 
 async function deliver(message, part) {

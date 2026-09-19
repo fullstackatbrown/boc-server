@@ -30,9 +30,6 @@ Annotated Abbreviated File Tree:
 |   - notifications.mjs - The six templates plus the three senders the routes call. All
 |     copy lives here and nowhere else; keep rendering logic out of it, since this is the
 |     file non-programmers edit.
-|   - bounces.mjs - Holds an IMAP IDLE connection on the service inbox and turns each
-|     Delivery Status Notification from Gmail into a `[MAIL] BOUNCED` log line, labelling
-|     it BOC/Bounces so it is logged once. On whenever MAIL_TRANSPORT=smtp.
 |   - render.mjs - Turns a template's markup into an HTML body and a plain-text
 |     alternative from one source, so the two can never drift.
 | - payments/ - Records trip payments from Brown Marketplace receipts. See "Payment Tracking" below.
@@ -49,7 +46,7 @@ Annotated Abbreviated File Tree:
 |   daily payment-reminder job as of a given date, which is how verify.py replays a week.
 | - logger.mjs - Creates logger for live logging of server behavior; writes to ./log.txt, which is truncated on each server start (only server.mjs should call logger.start())
 | - errors.mjs - Defines four custom errors used by web server: AuthError (401), NonexistenceError (404), InvalidDataError (422), IllegalOperationError (403)
-| - server_jobs.mjs - Creates cron jobs run on web server for scheduled database actions: re-checks the payment and bounce watchers at 4am; runs/destroys trips daily at 5am; sends payment reminders at 14:00 UTC; backs up the database to past_semesters/ on Jan 1 and Jun 1
+| - server_jobs.mjs - Creates cron jobs run on web server for scheduled database actions: re-checks the payment watcher at 4am; runs/destroys trips daily at 5am; sends payment reminders at 14:00 UTC; backs up the database to past_semesters/ on Jan 1 and Jun 1
 | - destroyer.mjs - Defines destroyTrip and destroyUser methods designed to be run *manually* by database admin (not imported elsewhere)
 | - requirement.txt - Python dependencies for verify.py
 | DOCUMENTATION FILES:
@@ -177,22 +174,29 @@ can't tell you.
   2026-09-17). Batches send sequentially and log as `[MAIL] smtp "<subject>" [i/n]`. The
   count on that line is what the transport **accepted**; anything refused gets its own
   `[MAIL] REJECTED` line. `test_65` signs 120 users onto trip 12 to prove the split.
-- **Bounces are watched, not just sent into the void.** `bounces.mjs` keeps an IMAP IDLE
-  connection on the service inbox (same App Password) and logs every DSN from
-  `mailer-daemon` as `[MAIL] BOUNCED <recipient> re: "<subject>" - <status> <diagnostic>`
-  within seconds of it arriving, then labels it `BOC/Bounces` so a restart or the daily
-  4am tick never logs it twice. It is on exactly when `MAIL_TRANSPORT=smtp`; there is no
-  separate flag. `test-helpers/bounces-check.mjs` parses the scrubbed real bounce in
-  `test-helpers/bounces/`, and with `LIVE=1` appends it to the inbox and waits for the
-  log line - give the fixture a fresh Message-ID per run (the script does), because
-  Gmail de-duplicates appends by Message-ID and hands back the previous copy, labels and
-  all. The only Gmail delete that sticks over IMAP is a move to Trash followed by a
-  delete from Trash; deleting from All Mail just re-files the message.
+- **A daily quota guard drops, never queues.** Gmail allows a consumer account roughly
+  500 recipients per rolling 24 hours; `mailer.mjs` keeps an in-memory ledger of what this
+  process sent and refuses any BCC'd message that would take the total past
+  `DAILY_RECIPIENT_LIMIT` (475), whole rather than in part - half a lottery hearing is
+  worse than none. `sendMail` resolves false, logs `[MAIL] QUOTA`, and the four
+  route-triggered senders then mail the trip's leaders a `NOT SENT:` notice saying the
+  action went through but the email didn't and won't be retried. Messages with no BCC
+  (that notice, the day-seven handoff) bypass the guard - the 25 of headroom is for them.
+  The ledger dies with the process: a restart on a heavy day under-counts, accepted.
+  `test-helpers/mail-quota-check.mjs` primes the ledger and proves all of this in capture
+  mode. The lottery, not the reminders, is what gets near the limit: a 100-signup trip is
+  ~100 recipients in one action.
+- **Bounces are not watched.** Gmail's outbound spam filter can refuse a message after
+  SMTP accepted it (see the next bullet); the only evidence is a Delivery Status
+  Notification in the service inbox. A watcher that logged those was tried and removed on
+  2026-09-19 - a log line nobody reads is no better than the inbox - so after a large
+  lottery, look in the inbox. Gmail-IMAP lessons from that work, kept because payments/
+  relies on them: appends de-duplicate by Message-ID and hand back the previous copy,
+  labels and all; the only delete that sticks is a move to Trash then a delete from Trash.
 - **Gmail also rejects mail it thinks is phishing, after accepting it at SMTP.** The old
   SELECTED wording ("[ACTION REQUIRED]", "Congratulations, you were selected", "click
   Confirm", "you might lose it") was bounced for every recipient of a real lottery; the
-  bounces only show up as Delivery Status Notifications in the service inbox, which
-  nothing reads. `selected` and `promoted` are now written in a plain register with one
+  bounces only show up as Delivery Status Notifications in the service inbox. `selected` and `promoted` are now written in a plain register with one
   link - keep them that way, and never sign a template with urgency or capitals. A
   single-recipient test send does *not* reproduce the block; only a real fan-out does.
 - The "not selected" template only goes out for trips with a `waitlistSize` set (see the

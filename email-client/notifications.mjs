@@ -1,5 +1,5 @@
 import moment from "moment";
-import { sendMail } from "./mailer.mjs";
+import { sendMail, DAILY_RECIPIENT_LIMIT } from "./mailer.mjs";
 import queries from "../queries.mjs";
 const { getLeaderEmails, tripPrice } = queries;
 import "dotenv/config";
@@ -160,11 +160,12 @@ ${SIGNOFF}`,
 //One message per recipient group. Participants are BCC'd so they never see each
 //other's addresses - which also keeps a no-show from seeing who else no-showed.
 //Leaders are CC'd so they see exactly what their participants got, and are Reply-To
-//so a reply reaches a person rather than the unattended service account.
-async function send(leaders, recipients, { subject, text }) {
-  if (recipients.length === 0) return; //Nothing to tell anyone
+//so a reply reaches a person rather than the unattended service account. Resolves
+//false only when the daily quota guard in mailer.mjs dropped the message.
+async function send(leaders, recipients, { subject, text }, { copyLeaders = true } = {}) {
+  if (recipients.length === 0) return true; //Nothing to tell anyone
   return sendMail({
-    cc: leaders,
+    cc: copyLeaders ? leaders : [],
     replyTo: leaders.join(", "),
     bcc: recipients,
     subject,
@@ -172,40 +173,62 @@ async function send(leaders, recipients, { subject, text }) {
   });
 }
 
+//Told to the leaders when the guard dropped one of their participants' messages. The
+//action itself already went through; only the email is lost, and nothing retries it.
+const quotaExceeded = (trip, subject, count) => ({
+  subject: `NOT SENT: ${subject}`,
+  text: `The website just tried to email ${count} participant(s) of ${trip.tripName} - the message titled "${subject}" - but sending it would have taken the club Gmail account past its daily limit of ${DAILY_RECIPIENT_LIMIT} recipients, so it was *not sent* and will not be retried.
+
+Whatever you did on the site (lottery, adding from the waitlist, attendance, cancellation) *did* go through - only the email didn't. The people affected are listed on the [trip page](${tripUrl(trip)}); please reach them yourselves, or wait for the limit to reset (it is a rolling 24 hours) before running the next email-sending action.
+
+The Brown Outing Club website`,
+});
+
+//For the four route-triggered senders: sends to each group, then tells the leaders
+//about any group the quota guard dropped. `groups` is [[recipients, template], ...].
+async function sendGroups(trip, leaders, groups) {
+  const results = await Promise.all(groups.map(([recipients, template]) => send(leaders, recipients, template)));
+  await Promise.all(groups.map(([recipients, template], i) =>
+    results[i] ? null : sendMail({ to: leaders, ...quotaExceeded(trip, template.subject, recipients.length) })));
+}
+
 export async function notifyLottery(trip, { accepted, waitlisted: waited, notAccepted }) {
   const leaders = await getLeaderEmails(trip);
-  await Promise.all([
-    send(leaders, accepted, selected(trip)),
-    send(leaders, waited, waitlisted(trip)),
-    send(leaders, notAccepted, notSelected(trip)),
+  await sendGroups(trip, leaders, [
+    [accepted, selected(trip)],
+    [waited, waitlisted(trip)],
+    [notAccepted, notSelected(trip)],
   ]);
 }
 
 //Takes a list of emails, not one address, so a batch waitlist add sends one message
 export async function notifyWaitlistPromotion(trip, emails) {
   if (emails.length === 0) return; //Nothing promoted, so no leader lookup needed
-  await send(await getLeaderEmails(trip), emails, promoted(trip));
+  await sendGroups(trip, await getLeaderEmails(trip), [[emails, promoted(trip)]]);
 }
 
 //Takes the leader list rather than looking it up: the trip and its signups are already
 //gone by the time this runs, so getLeaderEmails would come back empty.
 export async function notifyTripCancellation(trip, { leaders, recipients }) {
-  await send(leaders, recipients, cancelled(trip));
+  await sendGroups(trip, leaders, [[recipients, cancelled(trip)]]);
 }
 
 //Excused absences appear in neither list: they cancelled ahead of time and are
 //deliberately mailed nothing.
 export async function notifyAttendance(trip, { attended, noShow: noShows }) {
   const leaders = await getLeaderEmails(trip);
-  await Promise.all([
-    send(leaders, attended, thanks(trip)),
-    send(leaders, noShows, noShow(trip)),
+  await sendGroups(trip, leaders, [
+    [attended, thanks(trip)],
+    [noShows, noShow(trip)],
   ]);
 }
 
+//Leaders are Reply-To but not CC'd: seven copies per trip would be noise, and the
+//day-seven handoff below is the one they act on. A quota drop here just logs - the
+//next day's run sends the same thing.
 export async function notifyPaymentReminder(trip, emails, { final }) {
   const leaders = await getLeaderEmails(trip);
-  await send(leaders, emails, final ? paymentOverdue(trip) : paymentDue(trip));
+  await send(leaders, emails, final ? paymentOverdue(trip) : paymentDue(trip), { copyLeaders: false });
 }
 
 //To the leaders themselves, so no BCC and no CC

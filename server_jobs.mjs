@@ -4,7 +4,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import moment from "moment";
 import logger from "./logger.mjs";
-import { tickBounceWatcher } from "./email-client/bounces.mjs";
 import { notifyPaymentReminder, notifyUnpaidHandoff } from "./email-client/notifications.mjs";
 import queries from "./queries.mjs";
 const { runTrip, getUnpaidAttendance } = queries; //This also threads the model-database-sync through queries for safe db interaction
@@ -154,7 +153,6 @@ function jobify(cronString, job) {
 
 export default [
     jobify("0 5 * * *", runTrips), //Tick status of all trips being run on a given day to Post-Trip at 5am that morning
-    jobify("0 4 * * *", tickBounceWatcher), //Safety net for the push-based bounce watch: reconnect if Gmail dropped us, catch anything missed
     jobify("0 0 1 1,6 *", semesterBackup), //Back up database between semesters (ie. Jan 1st and June 1st)
     jobify("0 4 * * *", tickPaymentWatcher), //Safety net for the push-based receipt watcher: reconnect if Gmail dropped us, catch anything missed
     jobify("0 14 * * *", remindPayments), //Payment reminders at 10am Providence, when people read mail - not at 1am with the trip jobs

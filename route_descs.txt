@@ -181,11 +181,13 @@ Role Json:
 }
 
 EMAIL NOTIFICATIONS:
-Three routes and one daily job send mail. Every message CCs the trip's leaders, sets them
-as Reply-To, and BCCs its participant recipients, so participants never see each other's
-addresses. A group with no recipients is skipped rather than sent empty, and a group too
-large for one message (Gmail caps recipients per message) goes out as several identical
-messages, each CCing the leaders.
+Three routes and one daily job send mail. Every message sets the trip's leaders as
+Reply-To and BCCs its participant recipients, so participants never see each other's
+addresses; the leaders are also CC'd on everything except the daily payment reminders. A
+group with no recipients is skipped rather than sent empty, and a group too large for one
+message (Gmail caps recipients per message) goes out as several identical messages.
+A message that would take the account past its daily recipient limit is dropped whole
+and logged; for the three routes, the leaders then get a "NOT SENT:" notice instead.
 
 /trip/<tripId>/lead/lottery          Selected -> "You're on the trip"
                                      Waitlisted -> "You're on the waitlist"

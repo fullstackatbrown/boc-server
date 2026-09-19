@@ -50,8 +50,6 @@ import { MODE as MAIL_MODE } from "./email-client/mailer.mjs";
 import { DISABLED as PAYMENT_WATCH_DISABLED, tickPaymentWatcher } from "./payments/watcher.mjs";
 
 import https from "https";
-//Bounce watch for the mail above. Never throws - see email-client/bounces.mjs.
-import { tickBounceWatcher } from "./email-client/bounces.mjs";
 import fs from "fs";
 
 import axios from "axios";
@@ -664,7 +662,6 @@ app.listen(PORT, async () => {
       "and profile editing fails against any rule requiring request.auth. " +
       "Set FIREBASE_KEY_PATH or place the key at that path.");
   }
-  tickBounceWatcher(); //No-op unless MAIL_TRANSPORT=smtp
   if (process.env.NODE_ENV === "production" && MAIL_MODE !== "smtp") {
     //Mail defaults to capture everywhere, so a production box that forgets MAIL_TRANSPORT
     //sends nothing. That must be loud, not silent - it is otherwise invisible until a

@@ -588,8 +588,9 @@ class ServerTests(unittest.TestCase):
         self.assertGreater(len(messages), 0)
         for m in messages:
             if not m["bcc"]: continue #A message to the leaders alone has nobody to hide
-            self.assertGreater(len(m["cc"]), 0, f"no leaders CC'd on {m['subject']}")
-            self.assertEqual(m["replyTo"], ", ".join(m["cc"]))
+            #Replies must reach a person; leaders are CC'd on all but the payment reminders
+            self.assertTrue(m["replyTo"], f"no Reply-To on {m['subject']}")
+            if m["cc"]: self.assertEqual(m["replyTo"], ", ".join(m["cc"]))
             for recipient in m["bcc"]:
                 self.assertNotIn(recipient, m["cc"])
                 self.assertNotEqual(recipient, m["to"])
@@ -921,7 +922,8 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(len(messages), 1)
         m = messages[0]
         self.assertEqual(sorted(m["bcc"]), self.UNPAID)
-        self.assertEqual(m["cc"], ["william_l_stone@brown.edu"])
+        self.assertEqual(m["cc"], []) #Leaders are not copied on the daily nag...
+        self.assertEqual(m["replyTo"], "william_l_stone@brown.edu") #...but replies reach them
         self.assertIn("Outing Club-Class C Trip", m["text"])
         self.assertIn("$15", m["text"])
         self.assertIn("/trips/view?id=13", m["text"])
