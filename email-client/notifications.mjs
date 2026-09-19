@@ -20,10 +20,10 @@ const SIGNOFF = "See you outside,\nThe Brown Outing Club";
 //lose it" - was bounced by Gmail's outbound spam filter for every recipient of the
 //2026-09-17 Apple Picking lottery. No shouting, no urgency, one plain link.
 const selected = (trip) => ({
-  subject: `You have a spot on ${trip.tripName}`,
-  text: `The lottery for ${trip.tripName} (${when(trip)}) has run, and you have a spot on the trip.
+  subject: `SELECTED - ${trip.tripName}`,
+  text: `The lottery for ${trip.tripName} (${when(trip)}) has run, and you have a spot on the trip!
 
-To keep it, please confirm on the [trip page](${tripUrl(trip)}). You'll need to be signed in to the site with your Brown account to see the Confirm button. Spots that are still unconfirmed shortly before the trip may be offered to the waitlist.
+To keep it, please confirm on the [trip page](${tripUrl(trip)}). You'll need to be signed in to the site with your Brown account to see the Confirm button. Spots that are still unconfirmed a couple days or so before the trip may be offered to those on the waitlist.
 
 If you can no longer make it, please cancel on that same page so your spot can go to someone else.
 
@@ -33,7 +33,7 @@ ${SIGNOFF}`,
 });
 
 const waitlisted = (trip) => ({
-  subject: `[ACTION REQUIRED] WAITLISTED - ${trip.tripName}`,
+  subject: `WAITLISTED - ${trip.tripName}`,
   text: `You are currently on the waitlist for ${trip.tripName} on ${when(trip)}. While you weren't directly selected, spots open up pretty regularly and your odds of getting on the trip if you're still interested are probably better than you think. 
 
 If you're still interested, please *confirm your interest* via the [trip page](${tripUrl(trip)}) - you'll need to be signed in to the site with your Brown account to see the Confirm button. Confirming your interest now will give you priority over all other waitlisted participants who have not done so. 
@@ -52,9 +52,9 @@ We're sorry we weren't able to bring you with us; to compensate, your odds of ge
 ${SIGNOFF}`,
 });
 
-//Same subject as `selected`, and the same calm register, for the same reason
+//Same register as `selected`, for the same reason
 const promoted = (trip) => ({
-  subject: `You have a spot on ${trip.tripName}`,
+  subject: `You have a spot on ${trip.tripName}!`,
   text: `A spot opened up on ${trip.tripName} (${when(trip)}), and it's yours - you've been moved off the waitlist.
 
 If you haven't already, please confirm on the [trip page](${tripUrl(trip)}) so the leaders know you're coming. You'll need to be signed in to the site with your Brown account to see the Confirm button. If some time passes without a confirmation, the spot may be passed along to the next person on the waitlist; if you're no longer interested, please cancel on the same page instead.

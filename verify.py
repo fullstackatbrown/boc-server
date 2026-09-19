@@ -69,9 +69,9 @@ SENT_MAIL_FILE = "./sent_mail.jsonl"
 # Subject lines are copy, and copy lives in email-client/notifications.mjs. These are the
 # only assertions tied to wording, so they are collected here: if the club edits a subject
 # the email tests fail pointing at this block, rather than in five scattered places.
-# Note that waitlist promotion deliberately reuses the SELECTED subject.
-SUBJ_SELECTED = "You have a spot on "
-SUBJ_WAITLISTED = "[ACTION REQUIRED] WAITLISTED - "
+SUBJ_SELECTED = "SELECTED - "
+SUBJ_PROMOTED = "You have a spot on "
+SUBJ_WAITLISTED = "WAITLISTED - "
 SUBJ_NOT_SELECTED = "Status Update: "
 SUBJ_THANKS = "Thanks for coming on "
 SUBJ_NO_SHOW = "We missed you on "
@@ -555,9 +555,8 @@ class ServerTests(unittest.TestCase):
 
     def test_48_waitlist_promotion_emails_only_the_promoted_user(self):
         """test_31 promoted one user off trip 8; test_32 promoted nobody and
-        must not have sent an empty message. Promotion shares the 'SELECTED'
-        subject with the lottery, so the trip name is what scopes this."""
-        messages = sent_mail(SUBJ_SELECTED + "Pre-Trip Test Trip")
+        must not have sent an empty message."""
+        messages = sent_mail(SUBJ_PROMOTED + "Pre-Trip Test Trip")
         self.assertEqual(len(messages), 1)
         #Which waitlister gets promoted is random, so only the count is asserted
         self.assertEqual(len(messages[0]["bcc"]), 1)
@@ -703,10 +702,9 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["success"], 0)
         self.assertEqual(r.json()["added"], [])
-        #test_29's lottery sent the first of these; the batch add sent the second
-        messages = sent_mail(SUBJ_SELECTED + "Small Trip")
-        self.assertEqual(len(messages), 2)
-        self.assertEqual(len(messages[1]["bcc"]), 2)
+        messages = sent_mail(SUBJ_PROMOTED + "Small Trip")
+        self.assertEqual(len(messages), 1)
+        self.assertEqual(len(messages[0]["bcc"]), 2)
 
     # =========================================================================
     # /trip/<tripId>/lead/cancel
