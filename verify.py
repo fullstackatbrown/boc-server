@@ -424,15 +424,20 @@ class ServerTests(unittest.TestCase):
     # =========================================================================
 
     def test_35_lead_attendance_success(self):
-        """Take attendance on trip 9 (Post-Trip, past date). User 2 attended.
+        """Take attendance on trip 9 (Post-Trip, past date). User 2 attended, and
+        User 3 - seeded Not Selected on this trip - came along as a walk-on, which
+        used to collide with their existing signup row (Apple Picking, 2026-09-21).
         Trip 9 becomes Complete after this test."""
         r = post("/trip/9/lead/attendance", {
             "selectedParticipants": {"alan_wang2@brown.edu": "Attended"},
-            "additionalParticipants": [],
+            "additionalParticipants": ["test@du.de"],
         })
         self.assertEqual(r.status_code, 200)
         trip = get("/trip/9").json()
         self.assertEqual(trip["status"], "Complete")
+        status = {p["email"]: p["status"] for p in get("/trip/9/lead/participants").json()}
+        self.assertEqual(status["alan_wang2@brown.edu"], "Attended")
+        self.assertEqual(status["test@du.de"], "Attended")
 
     # =========================================================================
     # /trip/<tripId>/signup
@@ -563,10 +568,10 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(len(messages[0]["bcc"]), 1)
 
     def test_49_attendance_thanks_attendees_and_skips_excused(self):
-        """Trip 9: one attendee, no no-shows, so only the thank-you goes out."""
+        """Trip 9: one attendee plus one walk-on, no no-shows, so only the thank-you goes out."""
         messages = sent_mail(SUBJ_THANKS + "Post-Trip Test Trip")
         self.assertEqual(len(messages), 1)
-        self.assertEqual(messages[0]["bcc"], ["alan_wang2@brown.edu"])
+        self.assertEqual(messages[0]["bcc"], ["alan_wang2@brown.edu", "test@du.de"])
         self.assertEqual(len(sent_mail(SUBJ_NO_SHOW + "Post-Trip Test Trip")), 0)
 
     def test_51_rendered_emails_have_no_leftover_markup(self):

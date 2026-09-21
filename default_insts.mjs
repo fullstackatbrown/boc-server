@@ -307,7 +307,9 @@ const { User, Trip, TripSignUp, TripClass } = models;
     let ts9  = TripSignUp.create({ userId: 1, tripId: 9, tripRole: "Leader" });
     let ts10 = TripSignUp.create({ userId: 2, tripId: 9, tripRole: "Participant", status: "Selected",   confirmed: 1, paid: 1 });
     let ts11 = TripSignUp.create({ userId: 1, tripId: 3, tripRole: "Participant", status: "Signed Up" });
-    await Promise.all([ts5, ts6, ts7, ts8, ts9, ts10, ts11]);
+    // User 3 lost the trip 9 lottery but turns up anyway: attendance must update this row, not recreate it
+    let ts11b = TripSignUp.create({ userId: 3, tripId: 9, tripRole: "Participant", status: "Not Selected" });
+    await Promise.all([ts5, ts6, ts7, ts8, ts9, ts10, ts11, ts11b]);
 
     // Signups for the waitlist-size trips: 3 participants each, so a maxSize of 1
     // leaves 2 for the waitlist cap to split

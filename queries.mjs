@@ -561,43 +561,32 @@ async function cancelTrip(trip) {
   return { leaders, recipients };
 }
 
-async function attendAdditionalParticipants(additionalParticipantEmails, selectedParticipantEmails, trip) {
+async function attendAdditionalParticipants(additionalParticipantEmails, selectedParticipantEmails, trip, trans) {
   //Check to make sure input emails are valid
   const possibleParticipantEmails = await getPossibleParticipantEmails(trip);
   if (!additionalParticipantEmails.every(e => possibleParticipantEmails.includes(e))) throw new InvalidDataError("Attendance cannot be taken for an email not registered with a user (or an email registered with a trip leader's account).");
   //Filter out any potential duplicates between additional and selected participants emails
   additionalParticipantEmails = additionalParticipantEmails.filter(e => !selectedParticipantEmails.includes(e));
   //Find users associated with each additional participant email
-  const userProms = additionalParticipantEmails.map(e => {
-    return User.findOne({
-      where: { 
-        email: e
-      }
-    });
-  });
-  const users = await Promise.all(userProms);
-  //Create signups for all additional participants and increment their trips attended
-  const signupObjs = users.map(u => {
-    return {
-      userId: u.id,
-      tripId: trip.id,
-      tripRole: "Participant",
-      status: "Attended",
-      confirmed: true,
-    }
-  });
-  const signupCreationProm = TripSignUp.bulkCreate(signupObjs);
-  const tripsAttendedIncrProms = users.map(u => {
+  const users = await User.findAll({ where: { email: additionalParticipantEmails }, transaction: trans });
+  //A walk-on may already hold a signup on this trip (waitlisted, not selected, removed),
+  //and (tripId, userId) is the primary key - so those are updated rather than recreated
+  const existing = await TripSignUp.findAll({ where: { tripId: trip.id, userId: users.map(u => u.id) }, transaction: trans });
+  const attended = { status: "Attended", confirmed: true };
+  //Mark each additional participant attended and increment their trips attended
+  const proms = users.map(u => {
     u.tripsParticipated += 1;
     u.lotteryWeight = 1;
-    return u.save();
+    const signup = existing.find(s => s.userId === u.id);
+    return [
+      u.save({ transaction: trans }),
+      signup ? signup.update(attended, { transaction: trans })
+             : TripSignUp.create({ userId: u.id, tripId: trip.id, tripRole: "Participant", ...attended }, { transaction: trans }),
+    ];
   });
-  //Return all promises
-  tripsAttendedIncrProms.push(signupCreationProm)
-  return Promise.all(tripsAttendedIncrProms);
+  return Promise.all(proms.flat());
 }
 
-//TODO: encapsulate database manipulation in transaction
 const attendanceStates = ["Attended", "Excused Absence", "No Show"];
 const attendenceJsonFields = ["selectedParticipants", "additionalParticipants"];
 const NOSHOWPENALTY = 0.25;
@@ -631,40 +620,45 @@ async function doAttendance(trip, attendanceJson) {
     throw new IllegalOperationError(
       "Attendance must be reported for all accepted participants at once",
     );
-  //Take attendance of additional participants
-  const additionalAttendanceProm = attendAdditionalParticipants(additionalParticipants, emails, trip);
-  //Change attendance of each participant and increment status of trip
-  let attendProms = trip.TripSignUps.map((signup) => {
-    let attendance = selectedParticipants[signup.User.email];
-    switch (attendance) {
-      case "Attended":
-        signup.status = "Attended";
-        signup.User.tripsParticipated += 1;
-        signup.User.lotteryWeight = 1;
-        return [signup.User.save(), signup.save()];
-      case "Excused Absence":
-        return signup.destroy(); //If they canceled, delete signup instance
-      case "No Show":
-        signup.status = "No Show";
-        signup.User.lotteryWeight -= NOSHOWPENALTY;
-        return [signup.User.save(), signup.save()];
-    }
-  }).flat();
-  //Increment trips lead for trip leaders and change trip status to complete
-  const leaders = await trip.getUsers({
-    through: {
-      where: { tripRole: "Leader" },
-    }
+  //Every write below shares one transaction: a failure midway (say, a walk-on's
+  //signup colliding) must not leave some signups attended and the trip still Post-Trip
+  await sequelize.transaction(async (trans) => {
+    //Take attendance of additional participants
+    const additionalAttendanceProm = attendAdditionalParticipants(additionalParticipants, emails, trip, trans);
+    //Change attendance of each participant and increment status of trip
+    let attendProms = trip.TripSignUps.map((signup) => {
+      let attendance = selectedParticipants[signup.User.email];
+      switch (attendance) {
+        case "Attended":
+          signup.status = "Attended";
+          signup.User.tripsParticipated += 1;
+          signup.User.lotteryWeight = 1;
+          return [signup.User.save({ transaction: trans }), signup.save({ transaction: trans })];
+        case "Excused Absence":
+          return signup.destroy({ transaction: trans }); //If they canceled, delete signup instance
+        case "No Show":
+          signup.status = "No Show";
+          signup.User.lotteryWeight -= NOSHOWPENALTY;
+          return [signup.User.save({ transaction: trans }), signup.save({ transaction: trans })];
+      }
+    }).flat();
+    //Increment trips lead for trip leaders and change trip status to complete
+    const leaders = await trip.getUsers({
+      through: {
+        where: { tripRole: "Leader" },
+      },
+      transaction: trans,
+    });
+    const tripsLeadIncrProms = leaders.map(l => {
+      l.tripsLead += 1;
+      return l.save({ transaction: trans });
+    })
+    trip.status = "Complete";
+    //alterPc(trip, "Attendance", "complete", true);
+    attendProms.push(...tripsLeadIncrProms, additionalAttendanceProm);
+    await Promise.all(attendProms);
+    await trip.save({ transaction: trans });
   });
-  const tripsLeadIncrProms = leaders.map(l => {
-    l.tripsLead += 1;
-    return l.save();
-  })
-  trip.status = "Complete";
-  //alterPc(trip, "Attendance", "complete", true);
-  attendProms.push(...tripsLeadIncrProms, additionalAttendanceProm);
-  await Promise.all(attendProms);
-  await trip.save();
   //Report who ended up where so callers don't have to re-derive it from the request.
   //Walk-ons already on the selected list keep the status given there, matching the
   //filter attendAdditionalParticipants applies - otherwise a selected No Show typed

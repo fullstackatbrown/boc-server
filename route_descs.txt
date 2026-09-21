@@ -169,7 +169,7 @@ Attendance Json:
         ...
     },
     additionalParticipants: [
-        <participant_email>, //Participants who attended but were not on the selected list; signups are created for them
+        <participant_email>, //Participants who attended but were not on the selected list; an existing signup (waitlisted, not selected, removed) is marked Attended, otherwise one is created
         ...
     ]
 }

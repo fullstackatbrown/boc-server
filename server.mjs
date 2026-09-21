@@ -591,7 +591,9 @@ app.use(
 //Error handlers
 app.use(async (err, _req, res, _next) => {
   if (err instanceof Sequelize.BaseError) {
-    logger.log(err.message);
+    //Sequelize's own message is often just "Validation error"; the driver's names the key
+    const detail = err.parent?.sqlMessage || err.errors?.map((e) => e.message).join("; ") || err.message;
+    logger.log(`${err.name}: ${detail}`);
     res.status(422).json({
       errMessage:
         "SQL operation failure. Possible sources: broken unique constraint, data too long, or data of wrong type"
